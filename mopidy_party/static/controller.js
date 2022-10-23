@@ -208,7 +208,7 @@ angular.module('partyApp', [])
   
     
   $scope.getFontAwesomeIcon = function(source){
-      var sources_with_fa_icon = ["bandcamp", "mixcloud", "soundcloud", "spotify", "youtub3e"];
+      var sources_with_fa_icon = ["bandcamp", "mixcloud", "soundcloud", "spotify", "youtube"];
 	  var css_class =  "fa fa-music";
 	  if (source == "local") {
 		  css_class = "fa fa-folder";
