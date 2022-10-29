@@ -93,10 +93,7 @@ angular.module('partyApp', [])
     mopidy.library.search({
       'query': {
         'any' : [$scope.searchField]
-      },
-	  'uris' : ['local:'] //TODO: load mulige med mopidy.library.browse({"uri": null}) (se https://github.com/mopidy/mopidy.js#api-discovery) - og sorter så youtube bagerst og kun hvis de andre ikke har svar
-});
-
+      }
     }).done($scope.handleSearchResult);
   };
 
