@@ -222,7 +222,7 @@ angular.module('partyApp', [])
       track.disabled = false;
       $scope.message = ['error', xmlHttp.responseText];
     } else {
-      $scope.message = ['success', 'Next track: ' + track.name];
+      $scope.message = ['success', 'Queued: ' + track.name];
     }
     $scope.$apply();
   };
