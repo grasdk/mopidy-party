@@ -68,10 +68,10 @@ class AddRequestHandler(tornado.web.RequestHandler):
             current = self.core.tracklist.index().get() or 0
             pos = max(queue, current) # after lastly enqueued and after current track
 
-		if (pos > 15):
-			self.write("Too many songs in the queue")
-			self.set_status(403)
-			return
+        if (pos > 15):
+            self.write("Too many songs in the queue")
+            self.set_status(403)
+            return
 
         try:
             self.data["last"] = self.core.tracklist.add(uris=[track_uri], at_position=pos+1).get()[0]
