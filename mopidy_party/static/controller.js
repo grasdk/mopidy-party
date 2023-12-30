@@ -122,15 +122,18 @@ angular.module('partyApp', [])
 	  'uris' : $scope.sources_primary.map(source => source+':')
     }).done($scope.handleSearchResult);
 	
-	mopidy.library.search({
-      'query': {
-        'any' : [$scope.searchField]
-      },
-	  'uris' : $scope.sources_secondary.map(source => source+':')
-    }).done($scope.handleSecondarySearchResult);
+	if ($scope.sources_secondary.length > 0) {
+		mopidy.library.search({
+		  'query': {
+			'any' : [$scope.searchField]
+		  },
+		  'uris' : $scope.sources_secondary.map(source => source+':')
+		}).done($scope.handleSecondarySearchResult);
+	}
   };
 
   $scope.handleBrowseResult = function(res){
+	console.log("handle browseResult");
     $scope.loading = false;
     $scope.tracks  = [];
     $scope.tracksToLookup = [];
@@ -150,6 +153,7 @@ angular.module('partyApp', [])
   }
 
   $scope.lookupOnePageOfTracks = function(){
+	console.log("lookupOnePageOfTracks");
 	//the splice function returns and removes the elements from the list of tracks to show in one page
 	mopidy.library.lookup({'uris' : $scope.tracksToLookup.splice(0, $scope.maxTracksToLookupAtOnce)}).done(function(tracklistResult){
 		//mopidy.library.lookup delivers a JSON object, we unwrap it with Object.values() into an array.
@@ -159,12 +163,13 @@ angular.module('partyApp', [])
 		for(var j = 0; j < browseTracklist.length; j++){
           $scope.addTrackResult(browseTracklist[j]);
         }
-        $scope.$apply();
     });
+    $scope.$apply();
   };
 
 
   $scope.handleSearchResult = function(res){
+	console.log("handleSearchResult");
     $scope.tracks  = [];
 
     var _index = 0;
@@ -185,6 +190,7 @@ angular.module('partyApp', [])
   };
   
   $scope.handleSecondarySearchResult = function(res){
+	console.log("handleSearchResult2");
     var _index = 0;
     var _found = true;
     while(_found){
@@ -216,9 +222,9 @@ angular.module('partyApp', [])
             if ($scope.tracks[i].uri == matches[0].track.uri)
               $scope.tracks[i].disabled = true;
           }
-          $scope.$apply();
         }
       });
+    $scope.$apply();
   };
 
   $scope.addTrack = function(track){
