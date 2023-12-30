@@ -68,11 +68,6 @@ class AddRequestHandler(tornado.web.RequestHandler):
             current = self.core.tracklist.index().get() or 0
             pos = max(queue, current) # after lastly enqueued and after current track
 
-		if (pos > 15):
-			self.write("Too many songs in the queue")
-			self.set_status(403)
-			return
-
         try:
             self.data["last"] = self.core.tracklist.add(uris=[track_uri], at_position=pos+1).get()[0]
         except:
@@ -96,6 +91,28 @@ class IndexHandler(tornado.web.RequestHandler):
     def get(self):
         return self.render('static/index.html', **self.__dict)
     
+class ConfigHandler(tornado.web.RequestHandler):
+	def initialize(self, config):
+		self.party_cfg = config["party"]
+
+	def get(self):
+		conf_key = self.get_argument("key")
+		if conf_key == []:
+			self.set_status(400)
+			self.write("Query parameter 'key' not present")
+			return
+		try:
+			value = self.party_cfg[conf_key]
+			self.write(repr(value))
+		except KeyError:
+			self.set_status(404)
+			self.write("Party configuration '" + conf_key + "' not found")
+			return
+		except Exception as e:
+			self.set_status(500)
+			self.write("Internal server error: "+repr(e))
+			return
+
 
 def party_factory(config, core):
     from tornado.web import RedirectHandler
@@ -105,7 +122,8 @@ def party_factory(config, core):
     ('/', RedirectHandler, {'url': 'index.html'}), #always redirect from extension root to the html
     ('/index.html', IndexHandler, {'config': config }),
     ('/vote', VoteRequestHandler, {'core': core, 'data':data, 'config':config}),
-    ('/add', AddRequestHandler, {'core': core, 'data':data, 'config':config})
+    ('/add', AddRequestHandler, {'core': core, 'data':data, 'config':config}),
+	('/config', ConfigHandler, {'config':config})
     ]
 
 
@@ -126,6 +144,7 @@ class Extension(ext.Extension):
         schema['hide_pause'] = config.Boolean(optional=True)
         schema['hide_skip'] = config.Boolean(optional=True)
         schema['style'] = config.String()
+        schema['max_results'] = config.Integer(minimum=0)
         return schema
 
     def setup(self, registry):

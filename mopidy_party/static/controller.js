@@ -2,14 +2,13 @@
 
 // TODO : add a mopidy service designed for angular, to avoid ugly $scope.$apply()...
 angular.module('partyApp', [])
-  .controller('MainController', function($scope) {
+  .controller('MainController', function($scope, $http) {
 
   // Scope variables
-
   $scope.message = [];
   $scope.tracks  = [];
   $scope.tracksToLookup = [];
-  $scope.maxTracksToLookupAtOnce = 50;
+  $scope.maxTracksToLookupAtOnce = 50; //note: will be overwritten by config value
   $scope.loading = true;
   $scope.ready   = false;
   $scope.currentState = {
@@ -24,6 +23,14 @@ angular.module('partyApp', [])
   $scope.sources_blacklist = ['cd', 'file'];
   $scope.sources_primary = ['local', 'tidal']; //todo: make into a config value
   $scope.sources_secondary = [];
+
+  //Get the max tracks to lookup at once from the "max_results" config value in mopidy.conf
+  $http.get('/party/config?key=max_results').then(function success(response){
+	if (response.status == 200) {
+		$scope.maxTracksToLookupAtOnce = response.data;
+	}
+  }, null);
+
 
   // Initialize
 
@@ -83,7 +90,7 @@ angular.module('partyApp', [])
       $scope.$apply();
     });
   });
-
+  
   $scope.printDuration = function(track){
 
     if(!track.length)
@@ -123,7 +130,6 @@ angular.module('partyApp', [])
     }).done($scope.handleSecondarySearchResult);
   };
 
-
   $scope.handleBrowseResult = function(res){
     $scope.loading = false;
     $scope.tracks  = [];
@@ -144,13 +150,19 @@ angular.module('partyApp', [])
   }
 
   $scope.lookupOnePageOfTracks = function(){
-	mopidy.library.lookup({'uris' : $scope.tracksToLookup.slice(0, $scope.maxTracksToLookupAtOnce)}).done(function(tracklist){
-        for(var j = 0; j < tracklist.length; j++){
-          $scope.addTrackResult(tracklist[j]);
+	//the splice function returns and removes the elements from the list of tracks to show in one page
+	mopidy.library.lookup({'uris' : $scope.tracksToLookup.splice(0, $scope.maxTracksToLookupAtOnce)}).done(function(tracklistResult){
+		//mopidy.library.lookup delivers a JSON object, we unwrap it with Object.values() into an array.
+		//Each result is an array in itself, where the first (0'th) element is a track object, so we convert the result array using a 
+		//simple lambda function that converts each result to the track-part only (0'th element).
+		var browseTracklist = Object.values(tracklistResult).map((singleTrackResult) => singleTrackResult[0]);
+		for(var j = 0; j < browseTracklist.length; j++){
+          $scope.addTrackResult(browseTracklist[j]);
         }
         $scope.$apply();
     });
   };
+
 
   $scope.handleSearchResult = function(res){
     $scope.tracks  = [];
@@ -195,9 +207,8 @@ angular.module('partyApp', [])
   
 
   $scope.addTrackResult = function(track){
-
     $scope.tracks.push(track);
-    mopidy.tracklist.filter({'uri': [track.uri]}).done(
+	mopidy.tracklist.filter([{'uri': [track.uri]}]).done(
       function(matches){
         if (matches.length) {
           for (var i = 0; i < $scope.tracks.length; i++)
@@ -211,7 +222,6 @@ angular.module('partyApp', [])
   };
 
   $scope.addTrack = function(track){
-
     track.disabled = true;
 
     var xmlHttp = new XMLHttpRequest();
@@ -260,6 +270,5 @@ angular.module('partyApp', [])
     var _fn = $scope.currentState.paused ? mopidy.playback.resume : mopidy.playback.pause;
     _fn().done();
   };
-
 
 });
