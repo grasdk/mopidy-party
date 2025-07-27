@@ -4,7 +4,7 @@ import tornado.web
 
 from mopidy import config, ext
 
-__version__ = '1.2.1'
+__version__ = '1.2.2'
 
 
 class VoteRequestHandler(tornado.web.RequestHandler):
@@ -60,8 +60,11 @@ class AddRequestHandler(tornado.web.RequestHandler):
             self.set_status(400)
             return
 
-        self.data["queue"].append(self._getip())
-        self.data["queue"].pop(0)
+        n_queued = self.core.tracklist.get_length().get()
+        if (self.maxQueueLength > 0) and (n_queued > self.maxQueueLength):
+            self.write("Queue at max length, try again later.")
+            self.set_status(409)
+            return
 
         pos = 0
         if self.data["last"]:
@@ -75,6 +78,8 @@ class AddRequestHandler(tornado.web.RequestHandler):
 
         try:
             self.data["last"] = self.core.tracklist.add(uris=[track_uri], at_position=pos+1).get()[0]
+            self.data["queue"].append(self._getip())
+            self.data["queue"].pop(0)
         except Exception as e:
             self.write("Unable to add track. Internal Server Error: "+repr(e))
             self.set_status(500)
@@ -86,54 +91,55 @@ class AddRequestHandler(tornado.web.RequestHandler):
 
 
 class IndexHandler(tornado.web.RequestHandler):
+
     def initialize(self, config):
         self.__dict = {}
-		# Make the configuration from mopidy.conf [party] section available as variables in index.html
+        # Make the configuration from mopidy.conf [party] section available as variables in index.html
         for conf_key, value in config["party"].items():
-            if conf_key != 'enabled':
+            if conf_key != "enabled":
                 self.__dict[conf_key] = value
 
     def get(self):
-        return self.render('static/index.html', **self.__dict)
-    
-class ConfigHandler(tornado.web.RequestHandler):
-	def initialize(self, config):
-		self.party_cfg = config["party"]
+        return self.render("static/index.html", **self.__dict)
 
-	def get(self):
-		conf_key = self.get_argument("key")
-		if conf_key == []:
-			self.set_status(400)
-			self.write("Query parameter 'key' not present")
-			return
-		try:
-			value = self.party_cfg[conf_key]
-			self.write(repr(value))
-		except KeyError:
-			self.set_status(404)
-			self.write("Party configuration '" + conf_key + "' not found")
-			return
-		except Exception as e:
-			self.set_status(500)
-			self.write("Internal server error: "+repr(e))
-			return
+class ConfigHandler(tornado.web.RequestHandler):
+
+    def initialize(self, config):
+        self.party_cfg = config["party"]
+
+    def get(self):
+        conf_key = self.get_argument("key")
+        if conf_key == []:
+            self.set_status(400)
+            self.write("Query parameter 'key' not present")
+            return
+        try:
+            value = self.party_cfg[conf_key]
+            self.write(repr(value))
+        except KeyError:
+            self.set_status(404)
+            self.write("Party configuration '" + conf_key + "' not found")
+            return
+        except Exception as e:
+            self.set_status(500)
+            self.write("Internal server error: "+repr(e))
+            return
 
 
 def party_factory(config, core):
     from tornado.web import RedirectHandler
     data = {'track':"", 'votes':[], 'queue': [None] * config["party"]["max_tracks"], 'last':None}
-    
+
     return [
     ('/', RedirectHandler, {'url': 'index.html'}), #always redirect from extension root to the html
     ('/index.html', IndexHandler, {'config': config }),
     ('/vote', VoteRequestHandler, {'core': core, 'data':data, 'config':config}),
     ('/add', AddRequestHandler, {'core': core, 'data':data, 'config':config}),
-	('/config', ConfigHandler, {'config':config})
+    ('/config', ConfigHandler, {'config':config})
     ]
 
 
 class Extension(ext.Extension):
-
     dist_name = 'Mopidy-Party'
     ext_name = 'party'
     version = __version__
@@ -149,8 +155,8 @@ class Extension(ext.Extension):
         schema['hide_pause'] = config.Boolean(optional=True)
         schema['hide_skip'] = config.Boolean(optional=True)
         schema['style'] = config.String()
-        schema['max_results'] = config.Integer(minimum=0)
-        schema['max_queue_length'] = config.Integer(minimum=0)
+        schema['max_results'] = config.Integer(minimum=0, optional=True)
+        schema['max_queue_length'] = config.Integer(minimum=0, optional=True)
         return schema
 
     def setup(self, registry):

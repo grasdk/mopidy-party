@@ -2,13 +2,13 @@
 
 // TODO : add a mopidy service designed for angular, to avoid ugly $scope.$apply()...
 angular.module('partyApp', [])
-  .controller('MainController', function($scope, $http, $timeout){
+  .controller('MainController', function ($scope, $http, $timeout) {
 
     // Scope variables
     $scope.message = [];
     $scope.tracks = [];
     $scope.tracksToLookup = [];
-    $scope.maxTracksToLookupAtOnce = 50; //note: will be overwritten by config value
+    $scope.maxTracksToLookup = 50; // Will be overwritten later by module config
     $scope.loading = true;
     $scope.ready = false;
     $scope.currentState = {
@@ -38,23 +38,22 @@ angular.module('partyApp', [])
       'callingConvention': 'by-position-or-by-name'
     });
 
-    // Adding listenners
-    mopidy.on('state:online', function(){
+    mopidy.on('state:online', function () {
       mopidy.playback
         .getCurrentTrack()
-        .then(function(track){
-          if(track)
+        .then(function (track) {
+          if (track)
             $scope.currentState.track = track;
           return mopidy.playback.getState();
         })
-        .then(function(state){
+        .then(function (state) {
           $scope.currentState.paused = (state === 'paused');
           return mopidy.tracklist.getLength();
         })
-        .then(function(length){
+        .then(function (length) {
           $scope.currentState.length = length;
         })
-        .done(function(){
+        .done(function () {
           $scope.ready = true;
           $scope.loading = false;
           $scope.$apply();
@@ -76,24 +75,23 @@ angular.module('partyApp', [])
       );
 
     });
-    mopidy.on('event:playbackStateChanged', function(event){
+    mopidy.on('event:playbackStateChanged', function(event) {
       $scope.currentState.paused = (event.new_state === 'paused');
       $scope.$apply();
     });
-    mopidy.on('event:trackPlaybackStarted', function(event){
+    mopidy.on('event:trackPlaybackStarted', function(event) {
       $scope.currentState.track = event.tl_track.track;
       $scope.$apply();
     });
-    mopidy.on('event:tracklistChanged', function(){
+    mopidy.on('event:tracklistChanged', function() {
       mopidy.tracklist.getLength().done(function(length){
         $scope.currentState.length = length;
         $scope.$apply();
       });
     });
 
-    $scope.printDuration = function(track){
-
-      if(!track.length)
+    $scope.printDuration = function (track) {
+      if (!track.length)
         return '';
 
       var _sum = parseInt(track.length / 1000);
@@ -103,12 +101,11 @@ angular.module('partyApp', [])
       return '(' + _min + ':' + (_sec < 10 ? '0' + _sec : _sec) + ')';
     };
 
-    $scope.search = function(){
-
+    $scope.search = function () {
       $scope.message = [];
       $scope.loading = true;
-      if(!$scope.searchField){
-        //browse local library when search field is blank
+
+      if (!$scope.searchField) {
         mopidy.library.browse({
           'uri': 'local:directory'
         }).done($scope.handleBrowseResult);
@@ -122,7 +119,7 @@ angular.module('partyApp', [])
         'uris': $scope.sources_primary.map(source => source + ':')
       }).done($scope.handleSearchResult);
 
-      if($scope.sources_secondary.length > 0){
+      if($scope.sources_secondary.length > 0) {
         mopidy.library.search({
           'query': {
             'any': [$scope.searchField]
@@ -132,56 +129,44 @@ angular.module('partyApp', [])
       }
     };
 
-    $scope.handleBrowseResult = function(res){
+    $scope.handleBrowseResult = function(res) {
       $scope.loading = false;
       $scope.tracks = [];
       $scope.tracksToLookup = [];
 
-      for(var i = 0; i < res.length; i++){
-        if(res[i].type == 'directory' && res[i].uri == 'local:directory?type=track'){
+      for (var i = 0; i < res.length; i++) {
+        if (res[i].type == 'directory' && res[i].uri == 'local:directory?type=track') {
           mopidy.library.browse({
             'uri': res[i].uri
           }).done($scope.handleBrowseResult);
-        } else if(res[i].type == 'track'){
+        } else if (res[i].type == 'track') {
           $scope.tracksToLookup.push(res[i].uri);
         }
       }
-      $scope.$apply();
-      $timeout(function(){
-        if($scope.tracksToLookup){
-          $scope.lookupOnePageOfTracks();
-        }
-      }, 0);
+
+      if ($scope.tracksToLookup) {
+        $scope.lookupOnePageOfTracks();
+      }
     }
 
-    $scope.lookupOnePageOfTracks = function(){
-      //wrap in timeout to avoid nested $apply problems
-      $timeout(function(){
-        //the splice function returns and removes the elements from the list of tracks to show in one page
-        mopidy.library.lookup({ 'uris': $scope.tracksToLookup.splice(0, $scope.maxTracksToLookupAtOnce) }).done(function(tracklistResult){
-          //mopidy.library.lookup delivers a JSON object, we unwrap it with Object.values() into an array.
-          //Each result is an array in itself, where the first (0'th) element is a track object, so we convert the result array using a 
-          //simple lambda function that converts each result to the track-part only (0'th element).
-          var browseTracklist = Object.values(tracklistResult).map((singleTrackResult) => singleTrackResult[0]);
-          for(var j = 0; j < browseTracklist.length; j++){
-            $scope.addTrackResult(browseTracklist[j]);
-          }
-        });
-        //$scope.$apply();
-      }, 0);
+    $scope.lookupOnePageOfTracks = function () {
+      mopidy.library.lookup({ 'uris': $scope.tracksToLookup.splice(0, $scope.maxTracksToLookup) }).done(function (tracklistResult) {
+        Object.values(tracklistResult).map(function(singleTrackResult) { return singleTrackResult[0]; }).forEach($scope.addTrackResult);
+      });
     };
 
 
-    $scope.handleSearchResult = function(res){
+    $scope.handleSearchResult = function (res) {
+      $scope.loading = false;
       $scope.tracks = [];
       $scope.tracksToLookup = [];
 
       var _index = 0;
       var _found = true;
-      while(_found){
+      while (_found && _index < $scope.maxTracksToLookup) {
         _found = false;
-        for(var i = 0; i < res.length; i++){
-          if(res[i].tracks && res[i].tracks[_index]){
+        for (var i = 0; i < res.length; i++) {
+          if (res[i].tracks && res[i].tracks[_index]) {
             $scope.addTrackResult(res[i].tracks[_index]);
             _found = true;
           }
@@ -191,14 +176,14 @@ angular.module('partyApp', [])
       $scope.$apply();
     };
 
-    $scope.handleSecondarySearchResult = function(res){
+    $scope.handleSecondarySearchResult = function(res) {
       var _index = 0;
       var _found = true;
       while(_found){
         _found = false;
         for(var i = 0; i < res.length; i++){
-          if(res[i].tracks && res[i].tracks[_index]){
-            if(res[i].tracks[_index].length < 600000){ //TODO make into a config value
+          if(res[i].tracks && res[i].tracks[_index]) {
+            if(res[i].tracks[_index].length < 600000) { //TODO make into a config value
               $scope.addTrackResult(res[i].tracks[_index]);
             }
             _found = true;
@@ -210,85 +195,72 @@ angular.module('partyApp', [])
       $scope.$apply();
     };
 
-
-    $scope.addTrackResult = function(track){
+    $scope.addTrackResult = function (track) {
       $scope.tracks.push(track);
       mopidy.tracklist.filter([{ 'uri': [track.uri] }]).done(
-        function(matches){
-          if(matches.length){
-            for(var i = 0; i < $scope.tracks.length; i++){
-              if($scope.tracks[i].uri == matches[0].track.uri)
+        function (matches) {
+          if (matches.length) {
+            for (var i = 0; i < $scope.tracks.length; i++) {
+              if ($scope.tracks[i].uri == matches[0].track.uri)
                 $scope.tracks[i].disabled = true;
             }
           }
+          $scope.$apply();
         });
-      $scope.$apply();
     };
 
-    $scope.addTrack = function(track){
+    $scope.addTrack = function (track) {
       track.disabled = true;
 
       $http.post('/party/add', track.uri).then(
-        function success(response){
-          $timeout(function(){
-            $scope.message = ['success', 'Queued: ' + track.name];
-            //$scope.$apply();
-          }, 0);
+        function success(response) {
+          $scope.message = ['success', 'Queued: ' + track.name];
         },
-        function error(response){
-          $timeout(function(){
-            if(response.status === 409){
-              $scope.message = ['error', '' + response.data];
-            } else {
-              $scope.message = ['error', 'Code ' + response.status + ' - ' + response.data];
-            }
-            //$scope.$apply();
-          }, 0);
-        }
-      );
-    };
-
-    $scope.nextTrack = function(){
-      $http.get('/party/vote').then(
-        function success(response){
-          $timeout(function(){
-            $scope.message = ['success', '' + response.data];
-            //$scope.$apply();
-          }, 0);
-        },
-        function error(response){
-          $timeout(function(){
+        function error(response) {
+          if (response.status === 409) {
             $scope.message = ['error', '' + response.data];
-            //$scope.$apply();
-          }, 0);
+          } else {
+            $scope.message = ['error', 'Code ' + response.status + ' - ' + response.data];
+          }
         }
       );
     };
 
-    $scope.getTrackSource = function(track){
-      var sourceAsText = "unknown";
-      if(track.uri){
-        sourceAsText = track.uri.split(":", "1")[0];
+    $scope.nextTrack = function () {
+      $http.get('/party/vote').then(
+        function success(response) {
+          $scope.message = ['success', '' + response.data];
+        },
+        function error(response) {
+          $scope.message = ['error', '' + response.data];
+        }
+      );
+    };
+
+    $scope.getTrackSource = function (track) {
+      var sourceAsText = 'unknown';
+      if (track.uri) {
+        sourceAsText = track.uri.split(':', '1')[0];
       }
+
       return sourceAsText;
     };
 
+    $scope.getFontAwesomeIcon = function (source) {
+      var sources_with_fa_icon = ['bandcamp', 'mixcloud', 'soundcloud', 'spotify', 'youtube'];
+      var css_class = 'fa fa-music';
 
-    $scope.getFontAwesomeIcon = function(source){
-      var sources_with_fa_icon = ["bandcamp", "mixcloud", "soundcloud", "spotify", "youtube"];
-      var css_class = "fa fa-music";
-      if(source == "local"){
-        css_class = "fa fa-folder";
-      } else if(sources_with_fa_icon.includes(source)){
-        css_class = "fa-brands fa-" + source;
+      if (source == 'local') {
+        css_class = 'fa fa-folder';
+      } else if (sources_with_fa_icon.includes(source)) {
+        css_class = 'fa-brands fa-' + source;
       }
+
       return css_class;
     };
 
-
-    $scope.togglePause = function(){
+    $scope.togglePause = function () {
       var _fn = $scope.currentState.paused ? mopidy.playback.resume : mopidy.playback.pause;
       _fn().done();
     };
-
   });
