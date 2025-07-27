@@ -62,17 +62,6 @@ The RequestHandler 'config' makes ``mopidy.conf``'s section for the ``[party]`` 
 Example: The controller uses the below request, to read the ``max_results`` value::
 
     $http.get('/party/config?key=max_results')
-
-
-
-Developer information
-=====================
-
-The RequestHandler 'config' makes ``mopidy.conf``'s section for the ``[party]`` configuration available via ``http GET`` requests. Useful if you want to make aspects of the controller configurable.
-
-Example: The controller uses the below request, to read the ``max_results`` value::
-
-    $http.get('/party/config?key=max_results')
  
 
 Changelog
