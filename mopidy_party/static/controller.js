@@ -2,7 +2,7 @@
 
 // TODO : add a mopidy service designed for angular, to avoid ugly $scope.$apply()...
 angular.module('partyApp', [])
-  .controller('MainController', function ($scope, $http, $timeout) {
+  .controller('MainController', function ($scope, $http) {
 
     // Scope variables
     $scope.message = [];
@@ -25,14 +25,11 @@ angular.module('partyApp', [])
     $scope.sources_secondary = [];
 
     //Get the max tracks to lookup at once from the "max_results" config value in mopidy.conf
-    $http.get('/party/config?key=max_results').then(function success(response){
+    $http.get('/party/config?key=max_results').then(function success(response) {
       if(response.status == 200){
         $scope.maxTracksToLookupAtOnce = response.data;
       }
     }, null);
-
-
-    // Initialize
 
     var mopidy = new Mopidy({
       'callingConvention': 'by-position-or-by-name'
@@ -75,15 +72,18 @@ angular.module('partyApp', [])
       );
 
     });
-    mopidy.on('event:playbackStateChanged', function(event) {
+
+    mopidy.on('event:playbackStateChanged', function (event) {
       $scope.currentState.paused = (event.new_state === 'paused');
       $scope.$apply();
     });
-    mopidy.on('event:trackPlaybackStarted', function(event) {
+
+    mopidy.on('event:trackPlaybackStarted', function (event) {
       $scope.currentState.track = event.tl_track.track;
       $scope.$apply();
     });
-    mopidy.on('event:tracklistChanged', function() {
+
+    mopidy.on('event:tracklistChanged', function () {
       mopidy.tracklist.getLength().done(function(length){
         $scope.currentState.length = length;
         $scope.$apply();
@@ -129,7 +129,7 @@ angular.module('partyApp', [])
       }
     };
 
-    $scope.handleBrowseResult = function(res) {
+    $scope.handleBrowseResult = function (res) {
       $scope.loading = false;
       $scope.tracks = [];
       $scope.tracksToLookup = [];
@@ -264,3 +264,4 @@ angular.module('partyApp', [])
       _fn().done();
     };
   });
+  
