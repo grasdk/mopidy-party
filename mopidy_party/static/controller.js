@@ -1,5 +1,15 @@
 'use strict';
 
+//Utility function for parsing multi-line configs in the frontend
+function parseConfigList(data) {
+  return data
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\\n/g, '\n')
+    .split('\n')
+    .map(s => s.trim())
+    .filter(s => s);
+}
+
 // TODO : add a mopidy service designed for angular, to avoid ugly $scope.$apply()...
 angular.module('partyApp', [])
   .controller('MainController', function ($scope, $http) {
@@ -20,14 +30,27 @@ angular.module('partyApp', [])
       }
     };
     $scope.sources = [];
-    $scope.sources_blacklist = ['cd', 'file'];
-    $scope.sources_primary = ['local', 'tidal']; //todo: make into a config value
+    $scope.sources_blacklist = ['cd', 'file']; // Will be overwritten later by module config
+    $scope.sources_primary = ['local'];        // Will be overwritten later by module config
     $scope.sources_secondary = [];
 
     //Get the max tracks to lookup at once from the "max_results" config value in mopidy.conf
     $http.get('/party/config?key=max_results').then(function success(response) {
       if (response.status == 200) {
         $scope.maxTracksToLookup = response.data;
+      }
+    }, null);
+
+    //Get the source priority list
+    $http.get('/party/config?key=source_prio').then(function success(response) {
+      if (response.status == 200) {
+        $scope.sources_primary = parseConfigList(response.data);
+      }
+    }, null);
+    //Get the source blacklist
+    $http.get('/party/config?key=source_blacklist').then(function success(response) {
+      if (response.status == 200) {
+        $scope.sources_blacklist = parseConfigList(response.data);
       }
     }, null);
 
