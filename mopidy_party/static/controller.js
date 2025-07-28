@@ -26,7 +26,7 @@ angular.module('partyApp', [])
 
     //Get the max tracks to lookup at once from the "max_results" config value in mopidy.conf
     $http.get('/party/config?key=max_results').then(function success(response) {
-      if(response.status == 200) {
+      if (response.status == 200) {
         $scope.maxTracksToLookup = response.data;
       }
     }, null);
