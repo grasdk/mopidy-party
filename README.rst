@@ -45,6 +45,12 @@ Configuration
     hide_pause = false    # Change to true to hide the pause button
     hide_skip = false     # Change to true to hide the skip button
     style = dark.css      # Stylesheet to use. Also embedded is original.css (light theme)
+    source_prio = local   # Source search priority. Allows you to configure your best or fastest sources first for
+      tidal               # faster response times. One source per line.
+      spotify
+      youtube
+    source_blacklist = cd # Blacklist sources you don't want mopidy-party to search. No need to disable the plugins.
+      file                # One source per line.
 
 Project resources
 =================
