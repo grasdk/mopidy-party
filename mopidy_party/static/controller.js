@@ -35,20 +35,20 @@ angular.module('partyApp', [])
     $scope.sources_priority = ['local'];           // Will be overwritten later by module config
     $scope.prioritized_sources = [];
 
-    //Get the max tracks to lookup at once from the "max_results" config value in mopidy.conf
+    // Get the max tracks to lookup at once from the 'max_results' config value in mopidy.conf
     $http.get('/party/config?key=max_results').then(function success(response) {
       if (response.status == 200) {
         $scope.maxTracksToLookup = response.data;
       }
     }, null);
 
-    //Get the source priority list
+    // Get the source priority list
     $http.get('/party/config?key=source_prio').then(function success(response) {
       if (response.status == 200) {
         $scope.sources_priority = parseConfigList(response.data);
       }
     }, null);
-    //Get the source blacklist
+    // Get the source blacklist
     $http.get('/party/config?key=source_blacklist').then(function success(response) {
       if (response.status == 200) {
         $scope.sources_blacklist = parseConfigList(response.data);
@@ -264,7 +264,7 @@ angular.module('partyApp', [])
     };
 
     $scope.getFontAwesomeIcon = function (source) {
-      var sources_with_fa_icon = ['bandcamp', 'mixcloud', 'soundcloud', 'spotify', 'youtube'];
+      var sources_with_fa_icon = ['bandcamp', 'mixcloud', 'soundcloud', 'spotify', 'youtube', 'tidal'];
       var css_class = 'fa fa-music';
 
       if (source == 'local') {
