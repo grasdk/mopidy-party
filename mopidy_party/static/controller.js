@@ -20,6 +20,8 @@ angular.module('partyApp', [])
     $scope.tracksToLookup = [];
     $scope.maxTracksToLookup = 50; // Will be overwritten later by module config
     $scope.loading = true;
+    $scope.searching = false;
+    $scope.searchingSources = [];
     $scope.ready = false;
     $scope.currentState = {
       paused: false,
@@ -29,10 +31,9 @@ angular.module('partyApp', [])
         name: 'Nothing playing, add some songs to get the party going!'
       }
     };
-    $scope.sources = [];
     $scope.sources_blacklist = ['cd', 'file']; // Will be overwritten later by module config
-    $scope.sources_primary = ['local'];        // Will be overwritten later by module config
-    $scope.sources_secondary = [];
+    $scope.sources_priority = ['local'];           // Will be overwritten later by module config
+    $scope.prioritized_sources = [];
 
     //Get the max tracks to lookup at once from the "max_results" config value in mopidy.conf
     $http.get('/party/config?key=max_results').then(function success(response) {
@@ -44,7 +45,7 @@ angular.module('partyApp', [])
     //Get the source priority list
     $http.get('/party/config?key=source_prio').then(function success(response) {
       if (response.status == 200) {
-        $scope.sources_primary = parseConfigList(response.data);
+        $scope.sources_priority = parseConfigList(response.data);
       }
     }, null);
     //Get the source blacklist
@@ -76,6 +77,7 @@ angular.module('partyApp', [])
         .done(function () {
           $scope.ready = true;
           $scope.loading = false;
+          $scope.searching = false;
           $scope.$apply();
           $scope.search();
         });
@@ -83,14 +85,8 @@ angular.module('partyApp', [])
       /* Initialize available sources */
       mopidy.library.browse({ "uri": null }).done(
         function(uri_results){
-          //var filtered_sources = uri_results.filter(uri_result => !(uri_result.uri.includes("youtube")));
           $scope.sources = uri_results.map(source => source.uri.split(":")[0]);
-          //primary sources among available sources
-          $scope.sources_primary = $scope.sources_primary.filter(source => $scope.sources.includes(source));
-          //secondary sources are the available sources, not counting the blacklist
-          $scope.sources_secondary = $scope.sources.filter(source => !$scope.sources_blacklist.includes(source));
-          //secondary sources also need to be disjoint from the primary sources
-          $scope.sources_secondary = $scope.sources_secondary.filter(source => !$scope.sources_primary.includes(source));
+          $scope.prioritized_sources = getPrioritizedSources($scope.sources, $scope.sources_priority, $scope.sources_blacklist)
         }
       );
 
@@ -126,34 +122,27 @@ angular.module('partyApp', [])
 
     $scope.search = function () {
       $scope.message = [];
-      $scope.loading = true;
+      $scope.tracks = [];
+      $scope.tracksToLookup = [];
+      $scope.searchingSources = [];
 
       if (!$scope.searchField) {
-        mopidy.library.browse({
-          'uri': 'local:directory'
-        }).done($scope.handleBrowseResult);
-        return;
-      }
-
-      mopidy.library.search({
-        'query': {
-          'any': [$scope.searchField]
-        },
-        'uris': $scope.sources_primary.map(source => source + ':')
-      }).done($scope.handleSearchResult);
-
-      if($scope.sources_secondary.length > 0) {
-        mopidy.library.search({
-          'query': {
-            'any': [$scope.searchField]
-          },
-          'uris': $scope.sources_secondary.map(source => source + ':')
-        }).done($scope.handleSecondarySearchResult);
+        $scope.browse();
+      } else {
+        $scope.searchSourcesInOrder();
       }
     };
 
+    $scope.browse = function () {
+        mopidy.library.browse({
+          'uri': 'local:directory'  //TODO: depend on source_prio
+        }).done($scope.handleBrowseResult);
+        return;
+    }
+
     $scope.handleBrowseResult = function (res) {
       $scope.loading = false;
+      $scope.searching = false;
       $scope.tracks = [];
       $scope.tracksToLookup = [];
 
@@ -178,14 +167,35 @@ angular.module('partyApp', [])
       });
     };
 
+    $scope.searchSourcesInOrder = function() {
+      $scope.searchingSources = angular.copy($scope.prioritized_sources);
+      $scope.searching = true;
+
+      for (const src of $scope.prioritized_sources) {
+        console.log('searching' , src);
+        $scope.searchSources([src]);
+      }
+    }
+
+    $scope.searchSources = function($sourceList) {
+      if($sourceList.length > 0) {
+        mopidy.library.search({
+          'query': {
+            'any': [$scope.searchField]
+          },
+          'uris': $sourceList.map(source => source + ':')
+        }).done($scope.handleSearchResult);
+      }
+    }
 
     $scope.handleSearchResult = function (res) {
-      $scope.loading = false;
-      $scope.tracks = [];
-      $scope.tracksToLookup = [];
-
       var _index = 0;
       var _found = true;
+      console.log(res);
+      const index = $scope.searchingSources.indexOf(getSource(res));
+      if (index !== -1) {
+        $scope.searchingSources.splice(index, 1);
+      }
       while (_found && _index < $scope.maxTracksToLookup) {
         _found = false;
         for (var i = 0; i < res.length; i++) {
@@ -196,25 +206,9 @@ angular.module('partyApp', [])
         }
         _index++;
       }
-      $scope.$apply();
-    };
-
-    $scope.handleSecondarySearchResult = function(res) {
-      var _index = 0;
-      var _found = true;
-      while(_found){
-        _found = false;
-        for(var i = 0; i < res.length; i++){
-          if(res[i].tracks && res[i].tracks[_index]) {
-            if(res[i].tracks[_index].length < 600000) { //TODO make into a config value
-              $scope.addTrackResult(res[i].tracks[_index]);
-            }
-            _found = true;
-          }
-        }
-        _index++;
+      if ($scope.searchingSources.length < 1) {
+        $scope.searching = false;
       }
-      $scope.loading = false;
       $scope.$apply();
     };
 
@@ -287,3 +281,36 @@ angular.module('partyApp', [])
       _fn().done();
     };
   });
+
+function getPrioritizedSources(availablesources, sourceprio, blacklist) {
+    const blacklistSet = new Set(blacklist); //eliminate duplicates
+    const availableSet = new Set(availablesources);
+    const prioritized = sourceprio.filter(src => availableSet.has(src) && !blacklistSet.has(src));
+    const remaining = availablesources.filter(src => !blacklistSet.has(src) && !prioritized.includes(src));
+    return [...prioritized, ...remaining];
+}
+
+function findFirstUri(obj) {
+  if (typeof obj !== 'object' || obj === null) return null;
+
+  if ('uri' in obj && typeof obj.uri === 'string') {
+    return obj.uri;
+  }
+
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      const found = findFirstUri(obj[key]);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
+function getSource(result) {
+  var uri = findFirstUri(result);
+  if (uri) {
+    return uri.split(':', '1')[0];
+  }
+  return ""
+}

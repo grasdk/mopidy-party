@@ -58,6 +58,18 @@
           <div ng-show="loading" class="container-fluid">
             <p><span class="fas fa-hourglass"></span> Loading...</p>
           </div>
+          <div ng-show="searching" class="container-fluid">
+            <p><span style="text-transform: uppercase;">Searching: 
+                  <span class="fas fa-magnifying-glass"></span> 
+               </span>
+               <span ng-repeat="source in searchingSources" style="margin-right: 10px;">
+                  <span style="text-transform: uppercase;">
+                    {{! source }}
+                    <span class="{{! getFontAwesomeIcon(source) }}  fa-beat"></span>
+                  </span>
+               </span>
+            </p>
+          </div>
         </div>
       </div>
 
