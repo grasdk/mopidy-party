@@ -135,6 +135,7 @@ angular.module('partyApp', [])
     };
 
     $scope.search = function () {
+      $scope.ready = false;
       cancelCountdown();
       $scope.message = [];
       $scope.tracks = [];
@@ -183,6 +184,7 @@ angular.module('partyApp', [])
       if ($scope.tracksToLookup) {
         $scope.lookupOnePageOfTracks();
       }
+      $scope.ready = true;
     }
 
     $scope.lookupOnePageOfTracks = function () {
@@ -238,6 +240,7 @@ angular.module('partyApp', [])
       }
       if ($scope.searchingSources.length < 1) {
         $scope.searching = false;
+        $scope.ready = true;
       }
       $scope.$apply();
     };
