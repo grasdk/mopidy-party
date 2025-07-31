@@ -39,12 +39,19 @@ Configuration
     [party]
     enabled = true
     votes_to_skip = 3     # Votes needed from different users to allow skipping a song.
-    max_tracks = 0        # Maximum number of tracks that can be added by a single user in a row, 0 for unlimited
-    max_results = 50      # Maximum number of tracks to show when searching / browsing on a single page
-    max_queue_length = 0  # Maximum number of tracks queued at the same time, 0 for unlimited
+    max_tracks = 0        # Maximum number of tracks that can be added by a single user in a row. 0 for unlimited
+    max_results = 50      # Maximum number of tracks to show per source when searching / browsing 
+    max_queue_length = 0  # Maximum number of tracks queued at the same time. 0 for unlimited
+    max_song_length = 0   # Maximum song length, longer songs are not shown in search results. 0 for unlimited.
     hide_pause = false    # Change to true to hide the pause button
     hide_skip = false     # Change to true to hide the skip button
     style = dark.css      # Stylesheet to use. Also embedded is original.css (light theme)
+    source_prio = local   # Source search priority. Allows you to configure your best or fastest sources first
+      tidal               # for faster response times. One source per line.
+      spotify
+      youtube
+    source_blacklist = cd # Blacklist sources you don't want mopidy-party to search. No need to disable the
+      file                # plugins. One source per line.
 
 Project resources
 =================

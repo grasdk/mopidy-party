@@ -1,5 +1,15 @@
 'use strict';
 
+//Utility function for parsing multi-line configs in the frontend
+function parseConfigList (data) {
+  return data
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\\n/g, '\n')
+    .split('\n')
+    .map(s => s.trim())
+    .filter(s => s);
+}
+
 // TODO : add a mopidy service designed for angular, to avoid ugly $scope.$apply()...
 angular.module('partyApp', [])
   .controller('MainController', function ($scope, $http) {
@@ -10,6 +20,9 @@ angular.module('partyApp', [])
     $scope.tracksToLookup = [];
     $scope.maxTracksToLookup = 50; // Will be overwritten later by module config
     $scope.loading = true;
+    $scope.maxSongLengthMS = 0; //0 No limit. May be overwritten by module config
+    $scope.searching = false;
+    $scope.searchingSources = [];
     $scope.ready = false;
     $scope.currentState = {
       paused: false,
@@ -19,11 +32,34 @@ angular.module('partyApp', [])
         name: 'Nothing playing, add some songs to get the party going!'
       }
     };
+    $scope.sources_blacklist = ['cd', 'file']; // Will be overwritten later by module config
+    $scope.sources_priority = ['local'];       // Will be overwritten later by module config
+    $scope.prioritized_sources = [];
 
     // Get the max tracks to lookup at once from the 'max_results' config value in mopidy.conf
-    $http.get('/party/config?key=max_results').then(function success(response) {
+    $http.get('/party/config?key=max_results').then(function success (response) {
       if (response.status == 200) {
-        $scope.maxTracksToLookup = +response.data;
+        $scope.maxTracksToLookup = response.data;
+      }
+    }, null);
+
+    // Get the max song length 'max_song_length' config value in mopidy.conf (minutes)
+    $http.get('/party/config?key=max_song_length').then(function success (response) {
+      if (response.status == 200) {
+        $scope.maxSongLengthMS = response.data * 60000;
+      }
+    }, null);
+
+    // Get the source priority list
+    $http.get('/party/config?key=source_prio').then(function success (response) {
+      if (response.status == 200) {
+        $scope.sources_priority = parseConfigList(response.data);
+      }
+    }, null);
+    // Get the source blacklist
+    $http.get('/party/config?key=source_blacklist').then(function success (response) {
+      if (response.status == 200) {
+        $scope.sources_blacklist = parseConfigList(response.data);
       }
     }, null);
 
@@ -49,9 +85,19 @@ angular.module('partyApp', [])
         .done(function () {
           $scope.ready = true;
           $scope.loading = false;
+          $scope.searching = false;
           $scope.$apply();
           $scope.search();
         });
+
+      /* Initialize available sources */
+      mopidy.library.browse({ "uri": null }).done(
+        function (uri_results){
+          $scope.sources = uri_results.map(source => source.uri.split(":")[0]);
+          $scope.prioritized_sources = getPrioritizedSources($scope.sources, $scope.sources_priority, $scope.sources_blacklist)
+        }
+      );
+
     });
 
     mopidy.on('event:playbackStateChanged', function (event) {
@@ -84,24 +130,27 @@ angular.module('partyApp', [])
 
     $scope.search = function () {
       $scope.message = [];
-      $scope.loading = true;
+      $scope.tracks = [];
+      $scope.tracksToLookup = [];
+      $scope.searchingSources = [];
 
       if (!$scope.searchField) {
+        $scope.browse();
+      } else {
+        $scope.searchSourcesInOrder();
+      }
+    };
+
+    $scope.browse = function () {
         mopidy.library.browse({
-          'uri': 'local:directory'
+          'uri': 'local:directory'  //TODO: depend on source_prio
         }).done($scope.handleBrowseResult);
         return;
-      }
-
-      mopidy.library.search({
-        'query': {
-          'any': [$scope.searchField]
-        }
-      }).done($scope.handleSearchResult);
-    };
+    }
 
     $scope.handleBrowseResult = function (res) {
       $scope.loading = false;
+      $scope.searching = false;
       $scope.tracks = [];
       $scope.tracksToLookup = [];
 
@@ -122,29 +171,60 @@ angular.module('partyApp', [])
 
     $scope.lookupOnePageOfTracks = function () {
       mopidy.library.lookup({ 'uris': $scope.tracksToLookup.splice(0, $scope.maxTracksToLookup) }).done(function (tracklistResult) {
-        Object.values(tracklistResult).map(function(singleTrackResult) { return singleTrackResult[0]; }).forEach($scope.addTrackResult);
+        Object.values(tracklistResult).map(function (singleTrackResult) { return singleTrackResult[0]; }).forEach($scope.addTrackResult);
       });
     };
 
+    $scope.searchSourcesInOrder = function () {
+      $scope.searchingSources = angular.copy($scope.prioritized_sources);
+      $scope.searching = true;
+
+      for (const src of $scope.prioritized_sources) {
+        console.log('searching' , src);
+        $scope.searchSources([src]);
+      }
+    }
+
+    $scope.searchSources = function ($sourceList) {
+      if($sourceList.length > 0) {
+        mopidy.library.search({
+          'query': {
+            'any': [$scope.searchField]
+          },
+          'uris': $sourceList.map(source => source + ':')
+        }).done($scope.handleSearchResult);
+      }
+    }
 
     $scope.handleSearchResult = function (res) {
-      $scope.loading = false;
-      $scope.tracks = [];
-      $scope.tracksToLookup = [];
-
       var _index = 0;
       var _found = true;
-      while (_found && _index < $scope.maxTracksToLookup) {
-        _found = false;
-        for (var i = 0; i < res.length; i++) {
-          if (res[i].tracks && res[i].tracks[_index]) {
-            $scope.addTrackResult(res[i].tracks[_index]);
-            _found = true;
+      console.log(res);
+      const index = $scope.searchingSources.indexOf(getSource(res));
+      if (index !== -1) {
+        $scope.searchingSources.splice(index, 1);
+      }
+      for (var i = 0; i < res.length; i++) {
+        if (res[i].tracks) {
+          for (var j = 0; j < res[i].tracks.length; j++) {
+            if (res[i].tracks[j]) {
+              if ($scope.maxSongLengthMS <= 0 || res[i].tracks[j].length <= $scope.maxSongLengthMS) {
+                $scope.addTrackResult(res[i].tracks[j]);
+                _index++;
+                if (_index >= $scope.maxTracksToLookup) {
+                  break;
+                }
+              }
+            }
           }
         }
-        _index++;
+        if (_index >= $scope.maxTracksToLookup) {
+          break;
+        }
       }
-
+      if ($scope.searchingSources.length < 1) {
+        $scope.searching = false;
+      }
       $scope.$apply();
     };
 
@@ -200,7 +280,7 @@ angular.module('partyApp', [])
     };
 
     $scope.getFontAwesomeIcon = function (source) {
-      var sources_with_fa_icon = ['bandcamp', 'mixcloud', 'soundcloud', 'spotify', 'youtube'];
+      var sources_with_fa_icon = ['bandcamp', 'mixcloud', 'pandora', 'soundcloud', 'spotify', 'youtube', 'tidal'];
       var css_class = 'fa fa-music';
 
       if (source == 'local') {
@@ -217,3 +297,36 @@ angular.module('partyApp', [])
       _fn().done();
     };
   });
+
+function getPrioritizedSources (availablesources, sourceprio, blacklist) {
+    const blacklistSet = new Set(blacklist); //eliminate duplicates
+    const availableSet = new Set(availablesources);
+    const prioritized = sourceprio.filter(src => availableSet.has(src) && !blacklistSet.has(src));
+    const remaining = availablesources.filter(src => !blacklistSet.has(src) && !prioritized.includes(src));
+    return [...prioritized, ...remaining];
+}
+
+function findFirstUri (obj) {
+  if (typeof obj !== 'object' || obj === null) return null;
+
+  if ('uri' in obj && typeof obj.uri === 'string') {
+    return obj.uri;
+  }
+
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      const found = findFirstUri(obj[key]);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
+function getSource (result) {
+  var uri = findFirstUri(result);
+  if (uri) {
+    return uri.split(':', '1')[0];
+  }
+  return ""
+}
