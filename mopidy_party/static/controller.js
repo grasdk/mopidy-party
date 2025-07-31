@@ -1,7 +1,7 @@
 'use strict';
 
 //Utility function for parsing multi-line configs in the frontend
-function parseConfigList(data) {
+function parseConfigList (data) {
   return data
     .replace(/^['"]|['"]$/g, '')
     .replace(/\\n/g, '\n')
@@ -36,20 +36,20 @@ angular.module('partyApp', [])
     $scope.prioritized_sources = [];
 
     // Get the max tracks to lookup at once from the 'max_results' config value in mopidy.conf
-    $http.get('/party/config?key=max_results').then(function success(response) {
+    $http.get('/party/config?key=max_results').then(function success (response) {
       if (response.status == 200) {
         $scope.maxTracksToLookup = response.data;
       }
     }, null);
 
     // Get the source priority list
-    $http.get('/party/config?key=source_prio').then(function success(response) {
+    $http.get('/party/config?key=source_prio').then(function success (response) {
       if (response.status == 200) {
         $scope.sources_priority = parseConfigList(response.data);
       }
     }, null);
     // Get the source blacklist
-    $http.get('/party/config?key=source_blacklist').then(function success(response) {
+    $http.get('/party/config?key=source_blacklist').then(function success (response) {
       if (response.status == 200) {
         $scope.sources_blacklist = parseConfigList(response.data);
       }
@@ -84,7 +84,7 @@ angular.module('partyApp', [])
 
       /* Initialize available sources */
       mopidy.library.browse({ "uri": null }).done(
-        function(uri_results){
+        function (uri_results){
           $scope.sources = uri_results.map(source => source.uri.split(":")[0]);
           $scope.prioritized_sources = getPrioritizedSources($scope.sources, $scope.sources_priority, $scope.sources_blacklist)
         }
@@ -163,11 +163,11 @@ angular.module('partyApp', [])
 
     $scope.lookupOnePageOfTracks = function () {
       mopidy.library.lookup({ 'uris': $scope.tracksToLookup.splice(0, $scope.maxTracksToLookup) }).done(function (tracklistResult) {
-        Object.values(tracklistResult).map(function(singleTrackResult) { return singleTrackResult[0]; }).forEach($scope.addTrackResult);
+        Object.values(tracklistResult).map(function (singleTrackResult) { return singleTrackResult[0]; }).forEach($scope.addTrackResult);
       });
     };
 
-    $scope.searchSourcesInOrder = function() {
+    $scope.searchSourcesInOrder = function () {
       $scope.searchingSources = angular.copy($scope.prioritized_sources);
       $scope.searching = true;
 
@@ -177,7 +177,7 @@ angular.module('partyApp', [])
       }
     }
 
-    $scope.searchSources = function($sourceList) {
+    $scope.searchSources = function ($sourceList) {
       if($sourceList.length > 0) {
         mopidy.library.search({
           'query': {
@@ -282,7 +282,7 @@ angular.module('partyApp', [])
     };
   });
 
-function getPrioritizedSources(availablesources, sourceprio, blacklist) {
+function getPrioritizedSources (availablesources, sourceprio, blacklist) {
     const blacklistSet = new Set(blacklist); //eliminate duplicates
     const availableSet = new Set(availablesources);
     const prioritized = sourceprio.filter(src => availableSet.has(src) && !blacklistSet.has(src));
@@ -290,7 +290,7 @@ function getPrioritizedSources(availablesources, sourceprio, blacklist) {
     return [...prioritized, ...remaining];
 }
 
-function findFirstUri(obj) {
+function findFirstUri (obj) {
   if (typeof obj !== 'object' || obj === null) return null;
 
   if ('uri' in obj && typeof obj.uri === 'string') {
@@ -307,7 +307,7 @@ function findFirstUri(obj) {
   return null;
 }
 
-function getSource(result) {
+function getSource (result) {
   var uri = findFirstUri(result);
   if (uri) {
     return uri.split(':', '1')[0];
