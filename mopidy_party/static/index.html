@@ -10,6 +10,7 @@
     <link href="vendors/bootstrap.min.css" rel="stylesheet">
     <link href="vendors/fontawesome/css/all.min.css" rel="stylesheet">
     <link href="{{ style }}" rel="stylesheet">
+    <link href="control.css" rel="stylesheet">
 
     <script type="text/javascript" src="vendors/mopidy.min.js"></script>
     <script type="text/javascript" src="vendors/angular.min.js"></script>
@@ -17,6 +18,7 @@
   </head>
   <body ng-controller="MainController">
     <div class="container-fluid" style="margin-top:20px">
+      <div id="controlpanel">
       <div class="row">
         <div class="col-4">
           {% if not hide_pause %}
@@ -53,16 +55,21 @@
       <div class="row">
         <div class="col-12">
           <form ng-submit="search()">
+            <div class="search-container"></div>
             <input type="text" role="search" class="form-control" placeholder="Search..." ng-model="searchField" ng-disabled="!ready">
+            <span class="countdown-indicator">{{! countdownSymbol }}</span>
+            </div>
           </form>
         </div>
       </div>
-
-      <div class="alert" role="alert" ng-show="message.length" ng-class="{'alert-success' : (message[0] == 'success'), 'alert-danger' : (message[0] == 'error')}">
+      </div>
+      <div class="alert-container" ng-show="message.length">
+      <div class="alert" role="alert" ng-class="{'alert-success' : (message[0] == 'success'), 'alert-danger' : (message[0] == 'error')}" ng-class="{ 'fade-out': messageFadingOut }">
         {{! message[1] }}
       </div>
+      </div>
 
-      <ul class="list-group" style="margin-top:20px">
+      <ul class="list-group" style="margin: top -20px">
         <li class="list-group-item" ng-repeat="track in tracks">
           <button type="button" class="btn btn-xs btn-success add-button" ng-model="button" ng-click="addTrack(track)" ng-disabled="track.disabled">
             <span class="fas fa-play" ng-if="!track.disabled"></span>

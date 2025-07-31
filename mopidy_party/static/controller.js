@@ -12,10 +12,12 @@ function parseConfigList (data) {
 
 // TODO : add a mopidy service designed for angular, to avoid ugly $scope.$apply()...
 angular.module('partyApp', [])
-  .controller('MainController', function ($scope, $http) {
+  .controller('MainController', function ($scope, $http, $timeout, $window) {
 
     // Scope variables
     $scope.message = [];
+    let messageTimer = null;
+    $scope.messageFadingOut = false;
     $scope.tracks = [];
     $scope.tracksToLookup = [];
     $scope.maxTracksToLookup = 50; // Will be overwritten later by module config
@@ -23,7 +25,11 @@ angular.module('partyApp', [])
     $scope.maxSongLengthMS = 0; //0 No limit. May be overwritten by module config
     $scope.searching = false;
     $scope.searchingSources = [];
+    $scope.countdownSymbol = '↵';
     $scope.ready = false;
+    let debounceTimeout;
+    let countdownInterval;
+    let countdownTime = 2; // in seconds
     $scope.currentState = {
       paused: false,
       length: 0,
@@ -129,6 +135,7 @@ angular.module('partyApp', [])
     };
 
     $scope.search = function () {
+      cancelCountdown();
       $scope.message = [];
       $scope.tracks = [];
       $scope.tracksToLookup = [];
@@ -140,6 +147,15 @@ angular.module('partyApp', [])
         $scope.searchSourcesInOrder();
       }
     };
+
+    //Autosubmit with countdown
+    $scope.$watch('searchField', function(newVal, oldVal) {
+      if (newVal !== oldVal && $scope.ready) {
+        cancelCountdown(); // Reset previous timeouts
+        countdownTime = 2;
+        startCountdown();
+      }
+    });
 
     $scope.browse = function () {
         mopidy.library.browse({
@@ -180,7 +196,6 @@ angular.module('partyApp', [])
       $scope.searching = true;
 
       for (const src of $scope.prioritized_sources) {
-        console.log('searching' , src);
         $scope.searchSources([src]);
       }
     }
@@ -199,7 +214,6 @@ angular.module('partyApp', [])
     $scope.handleSearchResult = function (res) {
       var _index = 0;
       var _found = true;
-      console.log(res);
       const index = $scope.searchingSources.indexOf(getSource(res));
       if (index !== -1) {
         $scope.searchingSources.splice(index, 1);
@@ -247,13 +261,13 @@ angular.module('partyApp', [])
 
       $http.post('/party/add', track.uri).then(
         function success(response) {
-          $scope.message = ['success', 'Queued: ' + track.name];
+          $scope.setMessage('success', 'Queued: ' + track.name);
         },
         function error(response) {
           if (response.status === 409) {
-            $scope.message = ['error', '' + response.data];
+            $scope.setMessage('error', '' + response.data);
           } else {
-            $scope.message = ['error', 'Code ' + response.status + ' - ' + response.data];
+            $scope.setMessage('error', 'Code ' + response.status + ' - ' + response.data);
           }
         }
       );
@@ -262,10 +276,10 @@ angular.module('partyApp', [])
     $scope.nextTrack = function () {
       $http.get('/party/vote').then(
         function success(response) {
-          $scope.message = ['success', '' + response.data];
+          $scope.setMessage('success', '' + response.data);
         },
         function error(response) {
-          $scope.message = ['error', '' + response.data];
+          $scope.setMessage('error', '' + response.data);
         }
       );
     };
@@ -296,6 +310,70 @@ angular.module('partyApp', [])
       var _fn = $scope.currentState.paused ? mopidy.playback.resume : mopidy.playback.pause;
       _fn().done();
     };
+
+    //CONTROL PANEL STYLE START
+    function adjustBodyPadding() {
+      var controlPanel = document.getElementById('controlpanel');
+      if (controlPanel) {
+        document.body.style.paddingTop = controlPanel.offsetHeight + 'px';
+      }
+    }
+    $timeout(adjustBodyPadding);
+    angular.element($window).on('resize', adjustBodyPadding);
+    $scope.$on('$destroy', function () {
+      angular.element($window).off('resize', adjustBodyPadding);
+    });
+    //CONSTROL PANEL STYLE END
+
+    //MESSAGE STYLE START
+    $scope.setMessage = function(type, text) {
+      $scope.message = [type, text];
+      $scope.messageFadingOut = false;
+
+      if (type === 'error') {
+        console.error('Error:', text);
+      }
+
+      if (messageTimer) {
+        $timeout.cancel(messageTimer);
+      }
+
+      messageTimer = $timeout(function() {
+        $scope.messageFadingOut = true;
+
+        $timeout(function() {
+          $scope.message = [];
+          $scope.messageFadingOut = false;
+          messageTimer = null;
+        }, 500); // match fade-out time in CSS
+      }, 5000);
+    };
+    //MESSAGE STYLE END
+
+    //SEARCH COUNTDOWN START
+    function startCountdown() {
+      $scope.countdownSymbol = countdownTime.toString();
+
+      countdownInterval = $timeout(function tick() {
+        countdownTime--;
+        if (countdownTime > 0) {
+          $scope.countdownSymbol = countdownTime.toString();
+          countdownInterval = $timeout(tick, 1000);
+        } else {
+          $scope.search();
+          $scope.countdownSymbol = '↵';
+        }
+      }, 1000);
+    }
+
+    function cancelCountdown() {
+      $timeout.cancel(debounceTimeout);
+      $timeout.cancel(countdownInterval);
+      countdownTime = 2;
+      $scope.countdownSymbol = '↵';
+    }
+    //SEARCH COUNTDOWN END
+
   });
 
 function getPrioritizedSources (availablesources, sourceprio, blacklist) {
