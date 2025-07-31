@@ -20,6 +20,7 @@ angular.module('partyApp', [])
     $scope.tracksToLookup = [];
     $scope.maxTracksToLookup = 50; // Will be overwritten later by module config
     $scope.loading = true;
+    $scope.maxSongLengthMS = 0; //0 No limit. May be overwritten by module config
     $scope.searching = false;
     $scope.searchingSources = [];
     $scope.ready = false;
@@ -32,13 +33,20 @@ angular.module('partyApp', [])
       }
     };
     $scope.sources_blacklist = ['cd', 'file']; // Will be overwritten later by module config
-    $scope.sources_priority = ['local'];           // Will be overwritten later by module config
+    $scope.sources_priority = ['local'];       // Will be overwritten later by module config
     $scope.prioritized_sources = [];
 
     // Get the max tracks to lookup at once from the 'max_results' config value in mopidy.conf
     $http.get('/party/config?key=max_results').then(function success (response) {
       if (response.status == 200) {
         $scope.maxTracksToLookup = response.data;
+      }
+    }, null);
+
+    // Get the max song length 'max_song_length' config value in mopidy.conf (minutes)
+    $http.get('/party/config?key=max_song_length').then(function success (response) {
+      if (response.status == 200) {
+        $scope.maxSongLengthMS = response.data * 60000;
       }
     }, null);
 
@@ -196,15 +204,23 @@ angular.module('partyApp', [])
       if (index !== -1) {
         $scope.searchingSources.splice(index, 1);
       }
-      while (_found && _index < $scope.maxTracksToLookup) {
-        _found = false;
-        for (var i = 0; i < res.length; i++) {
-          if (res[i].tracks && res[i].tracks[_index]) {
-            $scope.addTrackResult(res[i].tracks[_index]);
-            _found = true;
+      for (var i = 0; i < res.length; i++) {
+        if (res[i].tracks) {
+          for (var j = 0; j < res[i].tracks.length; j++) {
+            if (res[i].tracks[j]) {
+              if ($scope.maxSongLengthMS <= 0 || res[i].tracks[j].length <= $scope.maxSongLengthMS) {
+                $scope.addTrackResult(res[i].tracks[j]);
+                _index++;
+                if (_index >= $scope.maxTracksToLookup) {
+                  break;
+                }
+              }
+            }
           }
         }
-        _index++;
+        if (_index >= $scope.maxTracksToLookup) {
+          break;
+        }
       }
       if ($scope.searchingSources.length < 1) {
         $scope.searching = false;
@@ -264,7 +280,7 @@ angular.module('partyApp', [])
     };
 
     $scope.getFontAwesomeIcon = function (source) {
-      var sources_with_fa_icon = ['bandcamp', 'mixcloud', 'soundcloud', 'spotify', 'youtube', 'tidal'];
+      var sources_with_fa_icon = ['bandcamp', 'mixcloud', 'pandora', 'soundcloud', 'spotify', 'youtube', 'tidal'];
       var css_class = 'fa fa-music';
 
       if (source == 'local') {
