@@ -180,7 +180,6 @@ angular.module('partyApp', [])
       $scope.searching = true;
 
       for (const src of $scope.prioritized_sources) {
-        console.log('searching' , src);
         $scope.searchSources([src]);
       }
     }
@@ -199,7 +198,6 @@ angular.module('partyApp', [])
     $scope.handleSearchResult = function (res) {
       var _index = 0;
       var _found = true;
-      console.log(res);
       const index = $scope.searchingSources.indexOf(getSource(res));
       if (index !== -1) {
         $scope.searchingSources.splice(index, 1);
