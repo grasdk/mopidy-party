@@ -42,7 +42,7 @@ Configuration
     max_tracks = 0        # Maximum number of tracks that can be added by a single user in a row. 0 for unlimited
     max_results = 50      # Maximum number of tracks to show per source when searching / browsing 
     max_queue_length = 0  # Maximum number of tracks queued at the same time. 0 for unlimited
-    max_song_length = 0   # Maximum song length, longer songs are not shown in search results. 0 for unlimited.
+    max_song_duration = 0 # Maximum song duration, longer songs are not shown in search results. 0 for unlimited.
     hide_pause = false    # Change to true to hide the pause button
     hide_skip = false     # Change to true to hide the skip button
     style = dark.css      # Stylesheet to use. Also embedded is original.css (light theme)

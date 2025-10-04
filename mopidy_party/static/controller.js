@@ -43,8 +43,8 @@ angular.module('partyApp', [])
       }
     }, null);
 
-    // Get the max song length 'max_song_length' config value in mopidy.conf (minutes)
-    $http.get('/party/config?key=max_song_length').then(function success (response) {
+    // Get the max song length 'max_song_duration' config value in mopidy.conf (minutes)
+    $http.get('/party/config?key=max_song_duration').then(function success (response) {
       if (response.status == 200) {
         $scope.maxSongLengthMS = response.data * 60000;
       }

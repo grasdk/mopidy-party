@@ -157,7 +157,7 @@ class Extension(ext.Extension):
         schema['style'] = config.String()
         schema['max_results'] = config.Integer(minimum=0, optional=True)
         schema['max_queue_length'] = config.Integer(minimum=0, optional=True)
-        schema['max_song_length'] = config.Integer(minimum=0, optional=True)
+        schema['max_song_duration'] = config.Integer(minimum=0, optional=True)
         schema['source_prio'] = config.String(optional=True)
         schema['source_blacklist'] = config.String(optional=True)
         return schema
