@@ -1,15 +1,5 @@
 'use strict';
 
-//Utility function for parsing multi-line configs in the frontend
-function parseConfigList (data) {
-  return data
-    .replace(/^['"]|['"]$/g, '')
-    .replace(/\\n/g, '\n')
-    .split('\n')
-    .map(s => s.trim())
-    .filter(s => s);
-}
-
 // TODO : add a mopidy service designed for angular, to avoid ugly $scope.$apply()...
 angular.module('partyApp', [])
   .controller('MainController', function ($scope, $http, $timeout, $window) {
@@ -49,8 +39,8 @@ angular.module('partyApp', [])
       }
     }, null);
 
-    // Get the max song length 'max_song_length' config value in mopidy.conf (minutes)
-    $http.get('/party/config?key=max_song_length').then(function success (response) {
+    // Get the max song length 'max_song_duration' config value in mopidy.conf (minutes)
+    $http.get('/party/config?key=max_song_duration').then(function success (response) {
       if (response.status == 200) {
         $scope.maxSongLengthMS = response.data * 60000;
       }
@@ -59,13 +49,13 @@ angular.module('partyApp', [])
     // Get the source priority list
     $http.get('/party/config?key=source_prio').then(function success (response) {
       if (response.status == 200) {
-        $scope.sources_priority = parseConfigList(response.data);
+        $scope.sources_priority = [...data.matchAll(/\w+/g)].map(x => x[0]);
       }
     }, null);
     // Get the source blacklist
     $http.get('/party/config?key=source_blacklist').then(function success (response) {
       if (response.status == 200) {
-        $scope.sources_blacklist = parseConfigList(response.data);
+        $scope.sources_blacklist = [...data.matchAll(/\w+/g)].map(x => x[0]);
       }
     }, null);
 
