@@ -2,6 +2,10 @@ body {
   background: black;
   color: white;
 }
+#controlpanel {
+  background-color: black;
+}
+
 .list-group-item, .card-body {
   background: #333 !important;
 }
