@@ -10,6 +10,16 @@ function parseConfigList (data) {
     .filter(s => s);
 }
 
+//Utility function for parsing multi-line configs in the frontend
+function parseConfigList (data) {
+  return data
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\\n/g, '\n')
+    .split('\n')
+    .map(s => s.trim())
+    .filter(s => s);
+}
+
 // TODO : add a mopidy service designed for angular, to avoid ugly $scope.$apply()...
 angular.module('partyApp', [])
   .controller('MainController', function ($scope, $http) {
@@ -180,7 +190,6 @@ angular.module('partyApp', [])
       $scope.searching = true;
 
       for (const src of $scope.prioritized_sources) {
-        console.log('searching' , src);
         $scope.searchSources([src]);
       }
     }
@@ -200,6 +209,31 @@ angular.module('partyApp', [])
       var _index = 0;
       var _found = true;
       console.log(res);
+      const index = $scope.searchingSources.indexOf(getSource(res));
+      if (index !== -1) {
+        $scope.searchingSources.splice(index, 1);
+      }
+      for (var i = 0; i < res.length; i++) {
+        if (res[i].tracks) {
+          for (var j = 0; j < res[i].tracks.length; j++) {
+            if (res[i].tracks[j]) {
+              if ($scope.maxSongLengthMS <= 0 || res[i].tracks[j].length <= $scope.maxSongLengthMS) {
+                $scope.addTrackResult(res[i].tracks[j]);
+                _index++;
+                if (_index >= $scope.maxTracksToLookup) {
+                  break;
+                }
+              }
+            }
+          }
+        }
+        if (_index >= $scope.maxTracksToLookup) {
+          break;
+        }
+      }
+      if ($scope.searchingSources.length < 1) {
+        $scope.searching = false;
+      }
       const index = $scope.searchingSources.indexOf(getSource(res));
       if (index !== -1) {
         $scope.searchingSources.splice(index, 1);
