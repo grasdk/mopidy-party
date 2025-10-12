@@ -60,17 +60,15 @@ class AddRequestHandler(tornado.web.RequestHandler):
             self.set_status(400)
             return
 
-        n_queued = self.core.tracklist.get_length().get()
-        if (self.maxQueueLength > 0) and (n_queued > self.maxQueueLength):
-            self.write("Queue at max length, try again later.")
-            self.set_status(409)
-            return
-
         pos = 0
         if self.data["last"]:
             queue = self.core.tracklist.index(self.data["last"]).get() or 0
             current = self.core.tracklist.index().get() or 0
             pos = max(queue, current) # after lastly enqueued and after current track
+            if (self.maxQueueLength > 0) and (pos >= self.maxQueueLength-1): 
+                self.write("Queue at max length, try again later.")
+                self.set_status(409)
+                return
 
         try:
             self.data["last"] = self.core.tracklist.add(uris=[track_uri], at_position=pos+1).get()[0]
@@ -153,6 +151,9 @@ class Extension(ext.Extension):
         schema['style'] = config.String()
         schema['max_results'] = config.Integer(minimum=0, optional=True)
         schema['max_queue_length'] = config.Integer(minimum=0, optional=True)
+        schema['max_song_duration'] = config.Integer(minimum=0, optional=True)
+        schema['source_prio'] = config.String(optional=True)
+        schema['source_blacklist'] = config.String(optional=True)
         return schema
 
     def setup(self, registry):
