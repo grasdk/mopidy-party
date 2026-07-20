@@ -17,9 +17,9 @@ angular.module('partyApp', [])
     $scope.searchingSources = [];
     $scope.countdownSymbol = '↵';
     $scope.ready = false;
-    let debounceTimeout;
+    $scope.autosubmitTime = 0; //0 No autosubmit. May be overwritten by module config
     let countdownInterval;
-    let countdownTime = 2; // in seconds
+    let countdownTime;
     $scope.currentState = {
       paused: false,
       length: 0,
@@ -57,6 +57,13 @@ angular.module('partyApp', [])
       if (response.status == 200) {
         $scope.sources_blacklist = [...data.matchAll(/\w+/g)].map(x => x[0]);
       }
+    }, null);
+
+        // Get the max tracks to lookup at once from the 'max_results' config value in mopidy.conf
+    $http.get('/party/config?key=autosubmit_time').then(function success (response) {
+      if (response.status == 200) {
+        $scope.autosubmitTime = response.data;
+      } 
     }, null);
 
     var mopidy = new Mopidy({
@@ -125,8 +132,9 @@ angular.module('partyApp', [])
     };
 
     $scope.search = function () {
-      $scope.ready = false;
-      cancelCountdown();
+      if ($scope.autosubmitTime > 0) {
+        cancelCountdown();
+      }
       $scope.message = [];
       $scope.tracks = [];
       $scope.tracksToLookup = [];
@@ -141,10 +149,12 @@ angular.module('partyApp', [])
 
     //Autosubmit with countdown
     $scope.$watch('searchField', function(newVal, oldVal) {
-      if (newVal !== oldVal && $scope.ready) {
-        cancelCountdown(); // Reset previous timeouts
-        countdownTime = 2;
-        startCountdown();
+      if ($scope.autosubmitTime > 0) {     
+        if (newVal !== oldVal) {
+          cancelCountdown(); // Reset previous timeouts
+          countdownTime = $scope.autosubmitTime;
+          startCountdown();
+        }
       }
     });
 
@@ -174,7 +184,6 @@ angular.module('partyApp', [])
       if ($scope.tracksToLookup) {
         $scope.lookupOnePageOfTracks();
       }
-      $scope.ready = true;
     }
 
     $scope.lookupOnePageOfTracks = function () {
@@ -230,7 +239,6 @@ angular.module('partyApp', [])
       }
       if ($scope.searchingSources.length < 1) {
         $scope.searching = false;
-        $scope.ready = true;
       }
       $scope.$apply();
     };
@@ -346,7 +354,6 @@ angular.module('partyApp', [])
     //SEARCH COUNTDOWN START
     function startCountdown() {
       $scope.countdownSymbol = countdownTime.toString();
-
       countdownInterval = $timeout(function tick() {
         countdownTime--;
         if (countdownTime > 0) {
@@ -360,9 +367,8 @@ angular.module('partyApp', [])
     }
 
     function cancelCountdown() {
-      $timeout.cancel(debounceTimeout);
       $timeout.cancel(countdownInterval);
-      countdownTime = 2;
+      countdownTime = $scope.autosubmitTime;
       $scope.countdownSymbol = '↵';
     }
     //SEARCH COUNTDOWN END
