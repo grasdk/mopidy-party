@@ -27,7 +27,7 @@
             </button>
           {% end %}
           {% if not hide_skip %}
-            <button type="button" class="btn btn-primary" ng-model="button" ng-click="nextTrack()" ng-disabled="!ready || currentState.length === 0">
+            <button type="button" class="btn btn-primary" ng-model="button" ng-click="nextTrack($event)" ng-disabled="!ready || currentState.length === 0">
               <span class="fas fa-step-forward"></span>
             </button>
           {% end %}
@@ -57,21 +57,21 @@
           <form ng-submit="search()">
             <div class="search-container"></div>
             <input type="text" role="search" class="form-control" placeholder="Search..." ng-model="searchField" ng-disabled="!ready">
-            <span class="countdown-indicator">{{! countdownSymbol }}</span>
+            <span class="submit-indicator">{{! submitSymbol }}</span>
             </div>
           </form>
         </div>
       </div>
       </div>
-      <div class="alert-container" ng-show="message.length">
-      <div class="alert" role="alert" ng-class="{'alert-success' : (message[0] == 'success'), 'alert-danger' : (message[0] == 'error')}" ng-class="{ 'fade-out': messageFadingOut }">
-        {{! message[1] }}
-      </div>
+      <div class="alert-container" ng-show="message.length" ng-style="messagePosition">
+        <div class="alert" role="alert" ng-class="{'alert-success' : (message[0] == 'success'), 'alert-danger' : (message[0] == 'error')}" ng-class="{ 'fade-out': messageFadingOut }" ng-click="closeMessage()">
+          {{! message[1] }}
+        </div>
       </div>
 
       <ul class="list-group" style="margin: top -20px">
         <li class="list-group-item" ng-repeat="track in tracks">
-          <button type="button" class="btn btn-xs btn-success add-button" ng-model="button" ng-click="addTrack(track)" ng-disabled="track.disabled">
+          <button type="button" class="btn btn-xs btn-success add-button" ng-model="button" ng-click="addTrack(track, $event)" ng-disabled="track.disabled">
             <span class="fas fa-play" ng-if="!track.disabled"></span>
             <span class="fas fa-check" ng-if="track.disabled"></span>
           </button>

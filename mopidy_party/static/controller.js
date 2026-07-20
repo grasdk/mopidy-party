@@ -8,6 +8,7 @@ angular.module('partyApp', [])
     $scope.message = [];
     let messageTimer = null;
     $scope.messageFadingOut = false;
+    $scope.messagePosition = { top: '30px', left: '5px' };
     $scope.tracks = [];
     $scope.tracksToLookup = [];
     $scope.maxTracksToLookup = 50; // Will be overwritten later by module config
@@ -15,7 +16,7 @@ angular.module('partyApp', [])
     $scope.maxSongLengthMS = 0; //0 No limit. May be overwritten by module config
     $scope.searching = false;
     $scope.searchingSources = [];
-    $scope.countdownSymbol = '↵';
+    $scope.submitSymbol = '↵';
     $scope.ready = false;
     $scope.autosubmitTime = 0; //0 No autosubmit. May be overwritten by module config
     let countdownInterval;
@@ -257,30 +258,30 @@ angular.module('partyApp', [])
         });
     };
 
-    $scope.addTrack = function (track) {
+    $scope.addTrack = function (track, event) {
       track.disabled = true;
 
       $http.post('/party/add', track.uri).then(
         function success(response) {
-          $scope.setMessage('success', 'Queued: ' + track.name);
+          $scope.setMessage('success', 'Queued: ' + track.name, event);
         },
         function error(response) {
           if (response.status === 409) {
-            $scope.setMessage('error', '' + response.data);
+            $scope.setMessage('error', '' + response.data, event);
           } else {
-            $scope.setMessage('error', 'Code ' + response.status + ' - ' + response.data);
+            $scope.setMessage('error', 'Code ' + response.status + ' - ' + response.data, event);
           }
         }
       );
     };
 
-    $scope.nextTrack = function () {
+    $scope.nextTrack = function (event) {
       $http.get('/party/vote').then(
         function success(response) {
-          $scope.setMessage('success', '' + response.data);
+          $scope.setMessage('success', '' + response.data, event);
         },
         function error(response) {
-          $scope.setMessage('error', '' + response.data);
+          $scope.setMessage('error', '' + response.data, event);
         }
       );
     };
@@ -327,9 +328,20 @@ angular.module('partyApp', [])
     //CONSTROL PANEL STYLE END
 
     //MESSAGE STYLE START
-    $scope.setMessage = function(type, text) {
+    $scope.setMessage = function(type, text, event) {
       $scope.message = [type, text];
       $scope.messageFadingOut = false;
+
+      if (event && event.clientX !== undefined && event.clientY !== undefined) {
+        var maxLeft = Math.max(10, $window.innerWidth - 260);
+        var maxTop = Math.max(10, $window.innerHeight - 120);
+        $scope.messagePosition = {
+          top: Math.min(event.clientY, maxTop) + 'px',
+          left: Math.min(event.clientX, maxLeft) + 'px'
+        };
+      } else {
+        $scope.messagePosition = { top: '30px', left: '5px' };
+      }
 
       if (type === 'error') {
         console.error('Error:', text);
@@ -349,19 +361,28 @@ angular.module('partyApp', [])
         }, 500); // match fade-out time in CSS
       }, 5000);
     };
+
+    $scope.closeMessage = function () {
+      if (messageTimer) {
+        $timeout.cancel(messageTimer);
+        messageTimer = null;
+      }
+      $scope.message = [];
+      $scope.messageFadingOut = false;
+    };
     //MESSAGE STYLE END
 
     //SEARCH COUNTDOWN START
     function startCountdown() {
-      $scope.countdownSymbol = countdownTime.toString();
+      $scope.submitSymbol = countdownTime.toString();
       countdownInterval = $timeout(function tick() {
         countdownTime--;
         if (countdownTime > 0) {
-          $scope.countdownSymbol = countdownTime.toString();
+          $scope.submitSymbol = countdownTime.toString();
           countdownInterval = $timeout(tick, 1000);
         } else {
           $scope.search();
-          $scope.countdownSymbol = '↵';
+          $scope.submitSymbol = '↵';
         }
       }, 1000);
     }
@@ -369,7 +390,7 @@ angular.module('partyApp', [])
     function cancelCountdown() {
       $timeout.cancel(countdownInterval);
       countdownTime = $scope.autosubmitTime;
-      $scope.countdownSymbol = '↵';
+      $scope.submitSymbol = '↵';
     }
     //SEARCH COUNTDOWN END
 

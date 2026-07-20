@@ -12,13 +12,12 @@
 
 .alert-container {
   position: fixed;
-  top: 30px;
-  left: 5px;
-  right: 5px;
   z-index: 9999;
   padding: 10px;
-  justify-content: center;
-  pointer-events: none; /* So it doesn't block clicks */
+}
+
+.alert-container .alert {
+  pointer-events: auto;
 }
 
 .alert-success {
@@ -31,9 +30,6 @@
   color: #f8d7da;
   border-color: transparent;
 }
-.alert {
-  margin-top: 20px;
-}
 
 .fade-out {
   opacity: 0;
@@ -44,7 +40,7 @@
   position: relative;
 }
 
-.countdown-indicator {
+.submit-indicator {
   position: absolute;
   right: 30px;
   top: 50%;
