@@ -60,7 +60,7 @@ angular.module('partyApp', [])
       }
     }, null);
 
-        // Get the max tracks to lookup at once from the 'max_results' config value in mopidy.conf
+    // Get the autosubmit time
     $http.get('/party/config?key=autosubmit_time').then(function success (response) {
       if (response.status == 200) {
         $scope.autosubmitTime = response.data;
