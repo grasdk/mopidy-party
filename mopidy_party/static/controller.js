@@ -256,18 +256,20 @@ angular.module('partyApp', [])
       });
       mopidy.tracklist.filter([{ 'uri': uris }]).done(
         function (matches) {
-          if (matches.length) {
-            for (var j = 0; j < matches.length; j++) {
-              for (var i = 0; i < $scope.tracks.length; i++) {
-                console.log("comparing ", $scope.tracks[i].uri, " with ", matches[j].track.uri);
-                if ($scope.tracks[i].uri == matches[j].track.uri) {
-                  $scope.tracks[i].disabled = true;
+          if (matches && matches.length) {
+            $scope.$apply(function() {
+              const matchedUris = new Set(matches.map(m => m.track.uri));
+              $scope.tracks.forEach(function(track) {
+                if (matchedUris.has(track.uri)) {
+                  console.log("Match found! Disabling:", track.uri);
+                  track.disabled = true;
                 }
-              }
-            }
+              });
+            });
           }
         }
       );
+      
       $scope.$apply();
       return uris.length; //Return the number of tracks added to the list
     };
