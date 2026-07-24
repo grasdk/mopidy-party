@@ -261,7 +261,6 @@ angular.module('partyApp', [])
               const matchedUris = new Set(matches.map(m => m.track.uri));
               $scope.tracks.forEach(function(track) {
                 if (matchedUris.has(track.uri)) {
-                  console.log("Match found! Disabling:", track.uri);
                   track.disabled = true;
                 }
               });
