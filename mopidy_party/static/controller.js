@@ -76,16 +76,15 @@ angular.module('partyApp', [])
       } 
     }, null);
 
-    var mopidy = new Mopidy({
-      'callingConvention': 'by-position-or-by-name'
-    });
+    var mopidy = new Mopidy();
 
     mopidy.on('state:online', function () {
       mopidy.playback
         .getCurrentTrack()
         .then(function (track) {
-          if (track)
+          if (track) {
             $scope.currentState.track = track;
+          }
           return mopidy.playback.getState();
         })
         .then(function (state) {
@@ -94,22 +93,31 @@ angular.module('partyApp', [])
         })
         .then(function (length) {
           $scope.currentState.length = length;
-        })
-        .done(function () {
           $scope.ready = true;
           $scope.loading = false;
           $scope.searching = false;
           $scope.$apply();
           $scope.search();
+        })
+        .catch(function (error) {
+          $scope.setMessage('error', 'Internal server error: Failed to initialize Mopidy state');
+          console.error('Failed to initialize Mopidy state:', error);
+          $scope.ready = true;
+          $scope.loading = false;
+          $scope.searching = false;
+          $scope.$apply();
         });
 
       /* Initialize available sources */
-      mopidy.library.browse({ "uri": null }).done(
+      mopidy.library.browse({ "uri": null }).then(
         function (uri_results){
           $scope.sources = uri_results.map(source => source.uri.split(":")[0]);
-          $scope.prioritized_sources = getPrioritizedSources($scope.sources, $scope.sources_priority, $scope.sources_blacklist)
+          $scope.prioritized_sources = getPrioritizedSources($scope.sources, $scope.sources_priority, $scope.sources_blacklist);
         }
-      );
+      ).catch(function (error) {
+        $scope.setMessage('error', 'Internal server error: Failed to browse Mopidy sources');
+        console.error('Failed to browse Mopidy sources:', error);
+      });
 
     });
 
@@ -124,9 +132,12 @@ angular.module('partyApp', [])
     });
 
     mopidy.on('event:tracklistChanged', function () {
-      mopidy.tracklist.getLength().done(function (length) {
+      mopidy.tracklist.getLength().then(function (length) {
         $scope.currentState.length = length;
         $scope.$apply();
+      }).catch(function (error) {
+        $scope.setMessage('error', 'Internal server error: Failed to update tracklist length');
+        console.error('Failed to update tracklist length:', error);
       });
     });
 
@@ -171,7 +182,7 @@ angular.module('partyApp', [])
     $scope.browse = function () {
         mopidy.library.browse({
           'uri': 'local:directory'  //TODO: depend on source_prio
-        }).done($scope.handleBrowseResult);
+        }).then($scope.handleBrowseResult);
         return;
     }
 
@@ -185,7 +196,7 @@ angular.module('partyApp', [])
         if (res[i].type == 'directory' && res[i].uri == 'local:directory?type=track') {
           mopidy.library.browse({
             'uri': res[i].uri
-          }).done($scope.handleBrowseResult);
+          }).then($scope.handleBrowseResult);
         } else if (res[i].type == 'track') {
           $scope.tracksToLookup.push(res[i].uri);
         }
@@ -197,11 +208,14 @@ angular.module('partyApp', [])
     }
 
     $scope.lookupOnePageOfTracks = function () {
-      mopidy.library.lookup({ 'uris': $scope.tracksToLookup.splice(0, $scope.maxTracksToLookup) }).done(function (tracklistResult) {
+      mopidy.library.lookup({ 'uris': $scope.tracksToLookup.splice(0, $scope.maxTracksToLookup) }).then(function (tracklistResult) {
         var tracks = Object.values(tracklistResult).reduce(function (allTracks, singleTrackResult) {
           return allTracks.concat(singleTrackResult || []);
         }, []);
         $scope.addTrackResults(tracks);
+      }).catch(function (error) {
+        $scope.setMessage('error', 'Internal server error: Failed to lookup tracks');
+        console.error('Failed to lookup tracks:', error);
       });
     };
 
@@ -221,7 +235,7 @@ angular.module('partyApp', [])
             'any': [$scope.searchField]
           },
           'uris': $sourceList.map(source => source + ':')
-        }).done($scope.handleSearchResult);
+        }).then($scope.handleSearchResult);
       }
     }
 
@@ -254,7 +268,7 @@ angular.module('partyApp', [])
           uris.push(track.uri);
         }
       });
-      mopidy.tracklist.filter([{ 'uri': uris }]).done(
+      mopidy.tracklist.filter([{ 'uri': uris }]).then(
         function (matches) {
           if (matches && matches.length) {
             $scope.$apply(function() {
@@ -267,7 +281,10 @@ angular.module('partyApp', [])
             });
           }
         }
-      );
+      ).catch(function (error) {
+        setMessage('error', 'Internal server error: Failed to filter tracklist');
+        console.error('Failed to filter tracklist:', error);
+      });
       
       $scope.$apply();
       return uris.length; //Return the number of tracks added to the list
@@ -325,7 +342,10 @@ angular.module('partyApp', [])
 
     $scope.togglePause = function () {
       var _fn = $scope.currentState.paused ? mopidy.playback.resume : mopidy.playback.pause;
-      _fn().done();
+      _fn().catch(function (error) {
+        $scope.setMessage('error', 'Failed to toggle playback');
+        console.error('Failed to toggle playback:', error);
+      });
     };
 
     //CONTROL PANEL STYLE START
