@@ -1,0 +1,36 @@
+.connection-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.7);
+  padding: 20px;
+}
+
+.connection-card {
+  max-width: 420px;
+  width: 100%;
+  background: #fff;
+  color: #222;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.connection-icon {
+  font-size: 2rem;
+  margin-bottom: 12px;
+  color: #0d6efd;
+}
+
+.fa-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

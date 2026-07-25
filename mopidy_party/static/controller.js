@@ -21,6 +21,15 @@ angular.module('partyApp', [])
     $scope.autosubmitTime = 0; //0 No autosubmit. May be overwritten by module config
     let countdownInterval;
     let countdownTime;
+
+    // Connection state variables
+    $scope.connectionState = 'connecting';
+    $scope.connectionMessage = 'Connecting to Mopidy…';
+    $scope.connectionDetail = 'Please wait while the party client connects.';
+    $scope.reloadUrl = '/party/';
+    let connectionRetryTimer = null;
+    const CONNECTION_RETRY_TIMEOUT_MS = 15000;
+
     $scope.currentState = {
       paused: false,
       length: 0,
@@ -78,7 +87,54 @@ angular.module('partyApp', [])
 
     var mopidy = new Mopidy();
 
+    function clearConnectionRetryTimer() {
+      if (connectionRetryTimer) {
+        $timeout.cancel(connectionRetryTimer);
+        connectionRetryTimer = null;
+      }
+    }
+
+    function setConnectionState(state, message, detail) {
+      $scope.connectionState = state;
+      $scope.connectionMessage = message;
+      $scope.connectionDetail = detail;
+      if (!$scope.$$phase) {
+        $scope.$apply();
+      }
+    }
+
+    function startConnectionRetryTimer() {
+      clearConnectionRetryTimer();
+      $scope.ready = false;
+      $scope.loading = true;
+      $scope.searching = false;
+      setConnectionState('retrying', 'No connection, retrying…', 'Mopidy may be restarting. We will stop trying after a short while.');
+
+      connectionRetryTimer = $timeout(function () {
+        connectionRetryTimer = null;
+        if (mopidy && typeof mopidy.close === 'function') {
+          try {
+            mopidy.close();
+          } catch (error) {
+            console.warn('Unable to stop Mopidy reconnects:', error);
+          }
+        }
+        setConnectionState('offline', 'Connection lost', 'The Mopidy server is not responding. Check that it is running, then open this page again.');
+      }, CONNECTION_RETRY_TIMEOUT_MS);
+    }
+
+    function resetConnectionState() {
+      clearConnectionRetryTimer();
+      setConnectionState('connected', 'Connected', '');
+    }
+
+    $scope.reloadPage = function () {
+      $window.location.href = $scope.reloadUrl;
+    };
+
+
     mopidy.on('state:online', function () {
+      resetConnectionState();
       mopidy.playback
         .getCurrentTrack()
         .then(function (track) {
@@ -121,6 +177,10 @@ angular.module('partyApp', [])
 
     });
 
+    mopidy.on('state:offline', function () {
+      startConnectionRetryTimer();
+    });
+
     mopidy.on('event:playbackStateChanged', function (event) {
       $scope.currentState.paused = (event.new_state === 'paused');
       $scope.$apply();
@@ -153,6 +213,9 @@ angular.module('partyApp', [])
     };
 
     $scope.search = function () {
+      if ($scope.connectionState !== 'connected') {
+        return;
+      }
       if ($scope.autosubmitTime > 0) {
         cancelCountdown();
       }
@@ -180,6 +243,9 @@ angular.module('partyApp', [])
     });
 
     $scope.browse = function () {
+        if ($scope.connectionState !== 'connected') {
+          return;
+        }
         mopidy.library.browse({
           'uri': 'local:directory'  //TODO: depend on source_prio
         }).then($scope.handleBrowseResult);
@@ -208,6 +274,9 @@ angular.module('partyApp', [])
     }
 
     $scope.lookupOnePageOfTracks = function () {
+      if ($scope.connectionState !== 'connected') {
+        return;
+      }
       mopidy.library.lookup({ 'uris': $scope.tracksToLookup.splice(0, $scope.maxTracksToLookup) }).then(function (tracklistResult) {
         var tracks = Object.values(tracklistResult).reduce(function (allTracks, singleTrackResult) {
           return allTracks.concat(singleTrackResult || []);
@@ -229,6 +298,9 @@ angular.module('partyApp', [])
     }
 
     $scope.searchSources = function ($sourceList) {
+      if ($scope.connectionState !== 'connected') {
+        return;
+      }
       if($sourceList.length > 0) {
         mopidy.library.search({
           'query': {
@@ -282,7 +354,7 @@ angular.module('partyApp', [])
           }
         }
       ).catch(function (error) {
-        setMessage('error', 'Internal server error: Failed to filter tracklist');
+        $scope.setMessage('error', 'Internal server error: Failed to filter tracklist');
         console.error('Failed to filter tracklist:', error);
       });
       
@@ -341,6 +413,9 @@ angular.module('partyApp', [])
     };
 
     $scope.togglePause = function () {
+      if ($scope.connectionState !== 'connected') {
+        return;
+      }
       var _fn = $scope.currentState.paused ? mopidy.playback.resume : mopidy.playback.pause;
       _fn().catch(function (error) {
         $scope.setMessage('error', 'Failed to toggle playback');
