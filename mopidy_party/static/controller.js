@@ -30,9 +30,8 @@ angular.module('partyApp', [])
       }
     };
     $scope.sources_blacklist = ['cd', 'file']; // Will be overwritten later by module config
-    $scope.sources_priority = ['local'];       // Will be overwritten later by module config
-    $scope.prioritized_sources = [];
-
+    $scope.sources = ['local'];                // Will be overwritten later by reading mopidy config
+    
     // Get the max tracks to lookup at once from the 'max_results' config value in mopidy.conf
     $http.get('/party/config?key=max_results').then(function success (response) {
       if (response.status == 200) {
@@ -56,12 +55,6 @@ angular.module('partyApp', [])
         .filter(s => s && !s.startsWith('#'));
     }
 
-    // Get the source priority list
-    $http.get('/party/config?key=source_prio').then(function success (response) {
-      if (response.status == 200) {
-        $scope.sources_priority = parseConfigList(response.data);
-      }
-    }, null);
     // Get the source blacklist
     $http.get('/party/config?key=source_blacklist').then(function success (response) {
       if (response.status == 200) {
@@ -108,11 +101,12 @@ angular.module('partyApp', [])
           $scope.$apply();
         });
 
-      /* Initialize available sources */
+      /* Initialize available sources and filter away blacklisted ones */
       mopidy.library.browse({ "uri": null }).then(
         function (uri_results){
-          $scope.sources = uri_results.map(source => source.uri.split(":")[0]);
-          $scope.prioritized_sources = getPrioritizedSources($scope.sources, $scope.sources_priority, $scope.sources_blacklist);
+          const availableSources = uri_results.map(source => source.uri.split(":")[0]);
+          const blacklistSet = new Set($scope.sources_blacklist);
+          $scope.sources = availableSources.filter(src => !blacklistSet.has(src));
         }
       ).catch(function (error) {
         $scope.setMessage('error', 'Internal server error: Failed to browse Mopidy sources');
@@ -164,7 +158,7 @@ angular.module('partyApp', [])
       if (!$scope.searchField) {
         $scope.browse();
       } else {
-        $scope.searchSourcesInOrder();
+        $scope.searchSourcesInParallel();
       }
     };
 
@@ -181,7 +175,7 @@ angular.module('partyApp', [])
 
     $scope.browse = function () {
         mopidy.library.browse({
-          'uri': 'local:directory'  //TODO: depend on source_prio
+          'uri': 'local:directory'  //TODO: depend on available sources
         }).then($scope.handleBrowseResult);
         return;
     }
@@ -219,25 +213,33 @@ angular.module('partyApp', [])
       });
     };
 
-    $scope.searchSourcesInOrder = function () {
-      $scope.searchingSources = angular.copy($scope.prioritized_sources);
+    $scope.searchSourcesInParallel = function () {
+      $scope.searchingSources = angular.copy($scope.sources);
       $scope.searching = true;
 
-      for (const src of $scope.prioritized_sources) {
-        $scope.searchSources([src]);
-      }
-    }
+      const promises = $scope.sources.map(function (src) {
+        return $scope.searchSources([src]).catch(function (error) {
+          console.error('Search failed for', src, error);
+        });
+      });
+
+      Promise.all(promises).finally(function () {
+        $scope.searching = false;
+        $scope.$apply();
+      });
+    };
 
     $scope.searchSources = function ($sourceList) {
       if($sourceList.length > 0) {
-        mopidy.library.search({
+        return mopidy.library.search({
           'query': {
             'any': [$scope.searchField]
           },
           'uris': $sourceList.map(source => source + ':')
         }).then($scope.handleSearchResult);
       }
-    }
+      return Promise.resolve();
+    };
 
     $scope.handleSearchResult = function (res) {
       var _index = 0;
@@ -430,14 +432,6 @@ angular.module('partyApp', [])
     //SEARCH COUNTDOWN END
 
   });
-
-function getPrioritizedSources (availablesources, sourceprio, blacklist) {
-    const blacklistSet = new Set(blacklist); //eliminate duplicates
-    const availableSet = new Set(availablesources);
-    const prioritized = sourceprio.filter(src => availableSet.has(src) && !blacklistSet.has(src));
-    const remaining = availablesources.filter(src => !blacklistSet.has(src) && !prioritized.includes(src));
-    return [...prioritized, ...remaining];
-}
 
 function findFirstUri (obj) {
   if (typeof obj !== 'object' || obj === null) return null;
