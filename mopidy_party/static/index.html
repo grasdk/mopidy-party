@@ -73,7 +73,8 @@
         <li class="list-group-item" ng-repeat="track in tracks">
           <button type="button" class="btn btn-xs btn-success add-button" ng-model="button" ng-click="addTrack(track, $event)" ng-disabled="track.disabled">
             <span class="fas fa-play" ng-if="!track.disabled"></span>
-            <span class="fas fa-check" ng-if="track.disabled"></span>
+            <span class="fas fa-spinner fa-spin" ng-if="track.disabled && track.queueing"></span>
+            <span class="fas fa-check" ng-if="track.disabled && !track.queueing"></span>
           </button>
           {{! track.name }} <small>{{! printDuration(track) }}</small><br>
           <small>

@@ -294,15 +294,21 @@ angular.module('partyApp', [])
 
     $scope.addTrack = function (track, event) {
       track.disabled = true;
+      track.queueing = true;
 
       $http.post('/party/add', track.uri).then(
         function success(response) {
+          track.queueing = false;
           $scope.setMessage('success', 'Queued: ' + track.name, event);
         },
         function error(response) {
           if (response.status === 409) {
+            track.queueing = false;
+            track.disabled = true;
             $scope.setMessage('error', '' + response.data, event);
           } else {
+            track.queueing = false;
+            track.disabled = false;
             $scope.setMessage('error', 'Code ' + response.status + ' - ' + response.data, event);
           }
         }
