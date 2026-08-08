@@ -31,6 +31,7 @@ angular.module('partyApp', [])
     };
     $scope.sources_blacklist = ['cd', 'file']; // Will be overwritten later by module config
     $scope.sources = ['local'];                // Will be overwritten later by reading mopidy config
+    $scope.queuedTrackUris = new Set();
     
     // Get the max tracks to lookup at once from the 'max_results' config value in mopidy.conf
     $http.get('/party/config?key=max_results').then(function success (response) {
@@ -158,7 +159,7 @@ angular.module('partyApp', [])
       if (!$scope.searchField) {
         $scope.browse();
       } else {
-        $scope.searchSourcesInParallel();
+        $scope.loadQueuedUris().then($scope.searchSourcesInParallel);
       }
     };
 
@@ -229,6 +230,19 @@ angular.module('partyApp', [])
       });
     };
 
+    $scope.loadQueuedUris = function () {
+      return mopidy.tracklist.getTlTracks().then(function (entries) {
+        $scope.queuedTrackUris = new Set(entries.map(function (entry) {
+          return entry.track && entry.track.uri;
+        }).filter(function (uri) {
+          return uri;
+        }));
+      }).catch(function (error) {
+        console.error('Failed to load queued track URIs', error);
+        $scope.queuedTrackUris = new Set();
+      });
+    };
+
     $scope.searchSources = function ($sourceList) {
       if($sourceList.length > 0) {
         return mopidy.library.search({
@@ -264,30 +278,16 @@ angular.module('partyApp', [])
 
     $scope.addTrackResults = function (tracks) {
       let uris = [];
+      const queuedUris = $scope.queuedTrackUris || new Set();
       tracks.forEach(function(track) {
         if ($scope.maxSongLengthMS <= 0 || track.length <= $scope.maxSongLengthMS) {
+          if (queuedUris.has(track.uri)) {
+            track.disabled = true;
+          }
           $scope.tracks.push(track);
           uris.push(track.uri);
         }
       });
-      mopidy.tracklist.filter([{ 'uri': uris }]).then(
-        function (matches) {
-          if (matches && matches.length) {
-            $scope.$apply(function() {
-              const matchedUris = new Set(matches.map(m => m.track.uri));
-              $scope.tracks.forEach(function(track) {
-                if (matchedUris.has(track.uri)) {
-                  track.disabled = true;
-                }
-              });
-            });
-          }
-        }
-      ).catch(function (error) {
-        setMessage('error', 'Internal server error: Failed to filter tracklist');
-        console.error('Failed to filter tracklist:', error);
-      });
-      
       $scope.$apply();
       return uris.length; //Return the number of tracks added to the list
     };
