@@ -71,6 +71,10 @@ angular.module('partyApp', [])
     }, null);
 
     var mopidy = new Mopidy();
+    // Initialize connection overlay handlers (created in connection.js)
+    if (typeof createConnectionHandlers === 'function') {
+      createConnectionHandlers($scope, $timeout, $http, mopidy);
+    }
 
     mopidy.on('state:online', function () {
       mopidy.playback

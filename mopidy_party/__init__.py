@@ -93,6 +93,7 @@ class IndexHandler(tornado.web.RequestHandler):
         for conf_key, value in config["party"].items():
             if conf_key != "enabled":
                 self.__dict[conf_key] = value
+        self.__dict.setdefault("conn_timeout", 120000)
 
     def get(self):
         return self.render("static/index.html", **self.__dict)
@@ -156,6 +157,7 @@ class Extension(ext.Extension):
         schema['source_blacklist'] = config.String(optional=True)
         schema['autosubmit_time'] = config.Integer(minimum=0, optional=True)
         schema['play_on_queue'] = config.Boolean(optional=True)
+        schema['conn_timeout'] = config.Integer(minimum=0, optional=True)
         return schema
 
     def setup(self, registry):
