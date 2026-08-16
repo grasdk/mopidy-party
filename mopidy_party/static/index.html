@@ -12,11 +12,12 @@
     <link href="vendors/fontawesome/css/all.min.css" rel="stylesheet">
     <link href="{{ style }}" rel="stylesheet">
     <link href="control.css" rel="stylesheet">
+    {% if conn_timeout != 0 %}
     <link href="connection.css" rel="stylesheet">
-
+    <script type="text/javascript" src="connection.js"></script>
+    {% end %}
     <script type="text/javascript" src="vendors/mopidy-1.3.0.js"></script>
     <script type="text/javascript" src="vendors/angular.min.js"></script>
-    <script type="text/javascript" src="connection.js"></script>
     <script type="text/javascript" src="controller.js"></script>
   </head>
   <body ng-controller="MainController">
@@ -115,7 +116,7 @@
         </button>
       </div>
     </div>
-  
+    {% if conn_timeout != 0 %}
     <div class="timeout-overlay" ng-show="connectionOverlayVisible">
       <div class="timeout-overlay__dialog">
         <h2>Party server unavailable</h2>
@@ -127,6 +128,6 @@
         <p ng-if="connectionOverlayTimeoutReached">Unable to reconnect. <a href="/">Return to home</a>.</p>
       </div>
     </div>
-
+    {% end %}
   </body>
 </html>

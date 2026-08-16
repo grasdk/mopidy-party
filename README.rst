@@ -50,8 +50,9 @@ Configuration
       file                # plugins. One source per line.
     autosubmit_time = 0   # Time (seconds) to wait before automatically submitting a search query. 0 for manual submit only.
     play_on_queue = true  # If nothing is playing, automatically start playing, when a track is queued.
-    conn_timeout = 120000 # Reconnection timeout in milliseconds. If the connection to the server is lost, the client will try
-                            to reconnect at regular intervals for this amount of time.
+    conn_timeout = 120000 # Reconnection timeout in milliseconds. If the connection to the server is lost, mopidy-party will
+                            show a message and attempt to reconnect until this timeout is reached, then abort. Set to 0 to 
+                            disable the timeout and try to reconnect indefinitely without showing the message.
 
 Project resources
 =================
